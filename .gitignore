@@ -1,0 +1,45 @@
+# ── Python ───────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# ── Node ─────────────────────────────────────────────────────────────────
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# ── Local data & secrets ─────────────────────────────────────────────────
+*.db
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+# Real credentials. The committed template with dummy values, and the list of
+# what each key buys you, is required_keys.txt - keep the two in step.
+keys.txt
+
+# Launcher bookkeeping: one PID file per running service. Machine-local by
+# definition.
+.run/
+
+# ── Annotation data ──────────────────────────────────────────────────────
+# Human ratings, rater exports and any audio staged for the workbench are
+# real students' work under a research consent (spec §6.6, master plan §48.3).
+# They do not go in git, ever - not even de-identified, because the
+# de-identification is applied at serve time and a committed file bypasses it.
+ratings/
+annotation_exports/
+*.wav
+*.mp3
+*.m4a
+
+# ── Editors / OS ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

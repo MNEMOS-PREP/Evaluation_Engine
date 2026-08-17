@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-interviewer-backend"
+version = "0.1.0"
+description = "AI Interviewer / placement preparation platform — M13 Evaluation Engine"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "sqlmodel>=0.0.22",
+    "uvicorn[standard]>=0.30",
+    "pyyaml>=6.0",
+    # The evaluator ensemble (§6.4). Imported lazily in llm.py, so a checkout
+    # without an API key — including CI — runs and tests fine whether or not
+    # this is installed. Model tiers come from master plan §47.1 and are
+    # env-overridable; §47.1 routing rule 1 forbids the cheap tier here.
+    "anthropic>=0.60",
+    # Shared platform foundation. PINNED BY TAG on purpose: tracking main is
+    # how you get a surprise breakage on a Tuesday. v0.2.0 is where
+    # `ai_core.evidence` landed, which is the contract this module produces.
+    "ai-core @ git+https://github.com/MNEMOS-PREP/Platform_Core@v0.3.0#subdirectory=python",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+# This repo holds ONE module. Shared wiring comes from the `ai-core` package.
+include = ["backend_*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+# Rubrics and the fixture bank are data, not code, and both are load-bearing:
+# the fixtures ARE the M5 stand-in that lets this module run alone (§6.11).
+"backend_M13_Evaluation_Engine" = ["rubrics/*.yaml", "fixtures/*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# `N` (pep8-naming) is deliberately NOT selected: packages are named
+# backend_M13_Evaluation_Engine to match plan_in_depth/ and Frontend/, which
+# would trip N999 invalid-module-name.
+
+[tool.ruff.lint.per-file-ignores]
+# `Depends(...)` / `Query(...)` in argument defaults is the canonical FastAPI
+# idiom, not the mutable-default bug B008 exists to catch.
+"**/router.py" = ["B008"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["backend_M13_Evaluation_Engine"]
+markers = [
+    "gate: release-blocking acceptance gate (spec §13)",
+]

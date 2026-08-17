@@ -1,0 +1,51 @@
+===============================================================================
+  M13 — EVALUATION ENGINE · CREDENTIALS
+  Copy this file to keys.txt and fill in the real values.
+  keys.txt is gitignored. This file is committed and holds dummies only.
+===============================================================================
+
+Values already in the environment WIN over this file, so CI and a deployment
+can set real environment variables without a file, and you can override one
+key for one shell without editing anything.
+
+NOTHING HERE IS REQUIRED TO START. Without a key the module runs, the rubrics
+load, /health and /v1/deps answer, and the whole test suite passes — scoring
+is the one feature that switches off, and /v1/deps says so. That is the same
+rule a missing upstream module gets (spec §6.11).
+
+
+-------------------------------------------------------------------------------
+  ANTHROPIC_API_KEY
+-------------------------------------------------------------------------------
+  Buys you:   evaluation. Without it every turn returns
+              status=needs_human_review with dropped_reason=no_api_key, which
+              is honest rather than a fabricated score.
+  Get one:    https://console.anthropic.com/
+  Tier note:  master plan §47.1 routing rule 1 — anything a student sees as a
+              score runs at mid tier or above, never cheap. `model_for()`
+              REFUSES to return a cheap-tier model for a scoring job, so a
+              later cost squeeze can drop the ensemble count and not the tier.
+
+ANTHROPIC_API_KEY="sk-ant-replace-me"
+
+
+-------------------------------------------------------------------------------
+  OPTIONAL OVERRIDES
+-------------------------------------------------------------------------------
+  Model per job. Defaults come from master plan §47.1 and are deliberately
+  config rather than code, so a tier sweep is a restart and not a diff.
+
+# M13_MODEL_EVALUATE="claude-sonnet-5"
+# M13_MODEL_ADJUDICATE="claude-opus-5"
+
+  Rupee conversion for the cost telemetry in §11. The platform convention is
+  ≈88 (plan_in_depth/README.md). Set it if you are reconciling against a real
+  invoice rather than a budget.
+
+# USD_INR="88"
+
+  Point at a running upstream without editing module.json.
+
+# M04_BASE_URL="http://127.0.0.1:8104"
+# M05_BASE_URL="http://127.0.0.1:8105"
+# M12_BASE_URL="http://127.0.0.1:8112"

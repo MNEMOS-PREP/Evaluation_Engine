@@ -1,0 +1,105 @@
+# M13 §6.1 — DSA, spoken.
+#
+# The candidate explains an approach out loud. No code buffer, no diagram —
+# this rubric scores what they said and how they reasoned, which is the round
+# most campus interviews actually open with.
+#
+# EVERY ANCHOR DESCRIBES OBSERVABLE BEHAVIOUR, NOT A QUALITY ADJECTIVE.
+# "Good understanding" is not an anchor. "Explains the mechanism but misses
+# the worst case" is. If you cannot decide between two levels by pointing at
+# something the candidate said, the anchor is wrong — revise it rather than
+# asking raters to try harder (§6.6).
+
+round_type: dsa_verbal
+version: "1.0.0"
+created_at: "2026-08-17T00:00:00+00:00"
+
+# Master plan §32.5: the deduction is published and shown to the student, not
+# secret. M04 §6.3: applied ONCE, here, and M04 does not re-apply it.
+hint_penalty:
+  0: 1.00
+  1: 0.95
+  2: 0.85
+  3: 0.70
+  4: 0.50
+  5: 0.30
+
+dimensions:
+  # ── The one that becomes mastery ────────────────────────────────────────
+  - key: correctness
+    name: Correctness of the approach
+    concept_bearing: true          # exactly one per rubric (FR-13.22)
+    concept_domain: technical
+    weight: 0.40
+    description: >
+      Does the proposed approach actually solve the stated problem, within the
+      stated constraints? Judged on the approach as described, not on whether
+      it matches the reference answer — a valid alternative is correct.
+    anchors:
+      0: "No approach offered, or the approach cannot solve the problem as stated."
+      1: "Names a technique but the described steps do not solve the problem, or
+          violate a constraint that was given (e.g. mutates a read-only input)."
+      2: "A correct approach for the common case, but breaks on a stated
+          constraint or an obvious input class (empty, duplicates, negatives)."
+      3: "A correct approach with correct handling of the constraints given.
+          Complexity claims are stated and are right, or are not claimed."
+      4: "Correct, handles the stated constraints and the edge cases, and the
+          complexity claim is both stated and justified from the steps."
+
+  # ── Depth of understanding ──────────────────────────────────────────────
+  - key: depth
+    name: Depth of understanding
+    concept_domain: technical
+    weight: 0.35
+    description: >
+      Does the candidate explain the mechanism behind their answer, or only the
+      surface behaviour? Probes the difference between a memorised result and a
+      understood one.
+    anchors:
+      0: "No explanation attempted, or the explanation is incoherent."
+      1: "States what happens with no reason. ('It's faster.')"
+      2: "Gives a reason but not a mechanism. ('It's O(1) because hash maps are
+          fast.') Cannot go a level deeper when asked."
+      3: "Explains the mechanism correctly but misses an important edge case,
+          limitation, or trade-off."
+      4: "Explains the mechanism, its limits (worst case, collisions), and when
+          it would be the wrong choice."
+
+  # ── How it was said ─────────────────────────────────────────────────────
+  # concept_domain: communication — so §6.4 step 8 routes this to a
+  # communication concept and NEVER to a technical one. This is the rule that
+  # stops communication quality becoming part of DSA mastery.
+  - key: communication
+    name: Clarity of explanation
+    concept_domain: communication
+    weight: 0.25
+    description: >
+      Could a competent peer follow the reasoning from the explanation alone?
+      Scores structure and signposting. NEVER scores accent, fluency, grammar,
+      or language choice — M11 §6 and M12 §6.3 both forbid it, and an answer in
+      Hindi or Hinglish is scored on content exactly like any other (EC-13.6).
+    anchors:
+      0: "The explanation cannot be followed; no discernible order."
+      1: "Jumps between ideas without connecting them; the listener has to
+          reconstruct the order themselves."
+      2: "A followable sequence, but key steps are implied rather than stated,
+          or terms are used before they are introduced."
+      3: "Clear order, states the approach before the detail, defines the terms
+          it uses. Some redundancy or backtracking."
+      4: "States the approach, then the mechanism, then the trade-offs, with no
+          backtracking. A peer could implement it from the explanation alone."
+
+# Flags with evidence, never arithmetic (§15.5). There is no `penalty` key
+# here on purpose: a student who misremembers a function name is not one who
+# invented a library, and the model cannot reliably tell them apart.
+disqualifiers:
+  - key: fabricated_api
+    description: >
+      Cites a named library, method or language feature that does not exist,
+      and relies on it for the approach to work.
+    feeds: both
+  - key: fabricated_complexity_law
+    description: >
+      States a complexity result as a general law when it is false
+      (e.g. "quicksort is always O(n log n)").
+    feeds: report_note

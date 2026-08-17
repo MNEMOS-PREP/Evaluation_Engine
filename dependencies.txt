@@ -1,0 +1,135 @@
+===============================================================================
+  M13 — EVALUATION ENGINE · DEPENDENCIES
+  Repo: https://github.com/MNEMOS-PREP/Evaluation_Engine
+  Spec: plan_in_depth/M13_Evaluation_Engine.md   (Revision 2)
+  Last updated: 2026-08-17
+===============================================================================
+
+This repo holds ONE module. It clones, installs and runs on its own — you do
+not need the other 18 to work on it.
+
+The machine-readable version of this file is `module.json`. The backend reads
+it at startup to probe upstreams; if you edit one, edit both.
+
+
+WHAT THIS MODULE NEEDS (upstream)
+-------------------------------------------------------------------------------
+Nothing here is required to START, and nothing is marked `required: true`.
+
+For most modules that is a convenience. For M13 it is a rule: this is the
+module that turns an answer into a number a student is told to trust, and a
+score cannot depend on whether somebody else's service happened to be up.
+Marking a dependency required would turn another team's outage into a student
+losing their evaluation.
+
+  MODULE  WHAT WE USE IT FOR              IF MISSING
+  ------  -----------------------------   ---------------------------------
+  M05     question packages: stem,        Scoring runs against the committed
+          reference answer, key points,   fixture bank instead. Answers are
+          rubric binding, item params     still scored and evidence still
+          (Question Intelligence)         verified; grounded items are
+                                          unavailable, and `item` is None so
+                                          the observation is not eligible to
+                                          move an ability estimate.
+                                          Repo: .../Question_Intelligence
+                                          Health: GET :8105/health
+
+  M12     delivery sub-scores per turn,   The delivery section is omitted and
+          with the disposition that says  says why. NEVER scored as zero — a
+          which may be scored             student who was not measured has
+          (Multimodal Analysis Suite)     not performed badly (EC-13.14).
+                                          Repo: .../Multimodal_Suite
+                                          Health: GET :8112/health
+
+  M04     receives one observation per    Observations queue to an outbox and
+          (turn, concept); owns the       replay with the same content-hashed
+          re-test queue a dispute writes  id, so a replay cannot double-count.
+          (Skill Graph & MNEMOS Memory)   The evaluation, its evidence and the
+                                          report are unaffected.
+                                          Repo: .../Memory
+                                          Health: GET :8104/health
+
+This is the platform's Rule 2 applied to services rather than to students:
+**a missing input narrows the scope of what we show, never the quality.** We
+say "not measured", never zero, and never a fabricated stand-in.
+
+
+WHAT THIS MODULE FEEDS (downstream)
+-------------------------------------------------------------------------------
+These consume M13. They are NOT dependencies — M13 never blocks on them — but
+`TurnEvaluation` and the observation shape are contracts four modules read.
+
+  MODULE  WHAT THEY TAKE FROM US
+  ------  ----------------------------------------------------------------
+  M04     one observation per (turn, concept), from the concept-bearing
+          dimension, each carrying resolvable evidence
+  M02     the coverage-ledger transition to 'scored'
+  M16     version-scoped comparable scores, for longitudinal diagnosis
+  M17     content scores and key-point coverage, for the fused timeline
+  M19     dimension_score ledger entries with their evidence spans
+
+Contract: `TurnEvaluation` is the stable surface. Additive changes are safe;
+removing or renaming a field is a breaking change for five modules.
+
+**The concept-bearing rule is the contract most easily broken by accident.**
+Exactly one rubric dimension is `concept_bearing`, and its score is the one
+that becomes mastery. Communication dimensions map only to communication
+concepts. Get this wrong and communication quality silently becomes part of
+technical mastery — a value nobody chose, inside θ, where nobody can untangle
+it later. The rubric loader refuses to load a rubric that declares zero or two
+(FR-13.22), which is why it is a load-time failure and not a code review.
+
+
+SHARED PLATFORM CODE  —  a versioned dependency, not a copy
+-------------------------------------------------------------------------------
+    https://github.com/MNEMOS-PREP/Platform_Core   (public)   pinned at v0.3.0
+
+  Backend    ai-core @ git+https://github.com/MNEMOS-PREP/Platform_Core@v0.3.0#subdirectory=python
+
+**`EvidenceSpan` and `EvidenceRef` are platform contracts, not module code.**
+M13 *produces* evidence; it does not get to decide what evidence is. The type
+that carries "every number traces to evidence" lives in `ai_core.evidence`
+because nineteen copies would drift, and that sentence would quietly stop
+being true in whichever repo fell behind — while that repo's own tests kept
+passing.
+
+`ai_core.evidence.resolve()` is also what this module's own output is checked
+against in the test suite. Using the platform's resolver rather than our own
+is what makes AC-13.16 a gate instead of a self-assessment.
+
+**Pinned by tag on purpose.** Tracking `main` is how you get a surprise
+breakage on a Tuesday. Upgrading is deliberate: bump the tag, run the tests,
+commit the bump.
+
+
+EXTERNAL DEPENDENCIES
+-------------------------------------------------------------------------------
+  Backend    Backend/pyproject.toml
+             fastapi · sqlmodel · uvicorn · pyyaml · pytest · httpx · ruff
+             anthropic (imported LAZILY — a checkout without it still runs)
+             Python >= 3.11
+
+  Frontend   Not yet. M13's student-facing surfaces land in milestone M10
+             (spec §14). Port 5213 is reserved in PORTS.txt.
+
+  Database   None yet. This slice holds no state: evaluations are returned,
+             not persisted. Persistence arrives with the ledger write in
+             milestone M5, on SQLite by default.
+
+
+RUNNING WITHOUT ANY OTHER MODULE
+-------------------------------------------------------------------------------
+    start_eval.bat                 API :8113
+    cd Backend && .venv\Scripts\python -m pytest
+
+Everything works. `GET /v1/deps` reports all three upstreams as absent and
+names what each one would have added — which is the point: you can see the
+degraded path without arranging for anything to be down.
+
+    start_all.bat                  the same, plus every sibling module repo
+
+`start_all.bat` reads the `depends_on` list in `module.json`, looks for each
+repo checked out beside this one (`..\Memory`, `..\Question_Intelligence`),
+and launches the ones it finds into the SAME terminal window. A sibling that
+is not on disk is skipped silently, because that is the normal case and not
+an error.

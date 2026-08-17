@@ -1,0 +1,70 @@
+{
+  "module": "M13",
+  "name": "Evaluation Engine",
+  "spec": "plan_in_depth/M13_Evaluation_Engine.md",
+  "repo": "https://github.com/MNEMOS-PREP/Evaluation_Engine",
+  "owner": "E1",
+  "phase": "1",
+  "ports": {
+    "backend": 8113,
+    "frontend": 5213
+  },
+  "core": {
+    "repo": "https://github.com/MNEMOS-PREP/Platform_Core",
+    "version": "v0.3.0"
+  },
+
+  "_comment_depends_on": [
+    "Nothing here is required to START, and nothing is marked required: true.",
+    "Marking one required turns someone else's outage into ours, and this",
+    "module is the one that must not fail — a student's score cannot depend",
+    "on whether a downstream service happened to be up.",
+    "`on_missing` is shown to a human: write a sentence they can act on.",
+    "Override any base_url without editing this file: M05_BASE_URL=http://..."
+  ],
+  "depends_on": [
+    {
+      "module": "M05",
+      "name": "Question Intelligence",
+      "repo": "https://github.com/MNEMOS-PREP/Question_Intelligence",
+      "reason": "question packages: stem, reference answer, key points, rubric binding, item parameters",
+      "on_missing": "Scoring runs against the committed fixture bank instead of the live item bank. Answers are still scored and evidence still verified; grounded items are unavailable and scores are not eligible to move ability estimates.",
+      "base_url": "http://127.0.0.1:8105",
+      "health_path": "/health",
+      "required": false
+    },
+    {
+      "module": "M12",
+      "name": "Multimodal Analysis Suite",
+      "repo": "https://github.com/MNEMOS-PREP/Multimodal_Suite",
+      "reason": "delivery sub-scores per turn, with the disposition that says which may be scored",
+      "on_missing": "The delivery section is omitted and says why. It is never scored as zero — a student who was not measured has not performed badly.",
+      "base_url": "http://127.0.0.1:8112",
+      "health_path": "/health",
+      "required": false
+    },
+    {
+      "module": "M04",
+      "name": "Skill Graph & MNEMOS Memory",
+      "repo": "https://github.com/MNEMOS-PREP/Memory",
+      "reason": "receives one observation per (turn, concept) from the concept-bearing dimension, and owns the re-test queue a dispute writes to",
+      "on_missing": "Observations queue to an outbox and replay with the same content-hashed id, so a replay cannot double-count. The evaluation, its evidence and the report are unaffected.",
+      "base_url": "http://127.0.0.1:8104",
+      "health_path": "/health",
+      "required": false
+    }
+  ],
+
+  "_comment_feeds": [
+    "These consume M13. They are NOT dependencies - M13 never blocks on them -",
+    "but `TurnEvaluation` and the observation shape are contracts four modules",
+    "read. Additive changes are safe; renaming or removing a field breaks them."
+  ],
+  "feeds": [
+    { "module": "M04", "takes": "one observation per (turn, concept), evidence-linked" },
+    { "module": "M02", "takes": "coverage ledger transitions to 'scored'" },
+    { "module": "M16", "takes": "version-scoped comparable scores for diagnosis" },
+    { "module": "M17", "takes": "content scores and key-point coverage for the fused timeline" },
+    { "module": "M19", "takes": "dimension_score ledger entries with evidence spans" }
+  ]
+}

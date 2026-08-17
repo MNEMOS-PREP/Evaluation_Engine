@@ -178,11 +178,12 @@ Saying this out loud costs nothing and buys enormous credibility, especially wit
 M13 **produces** evidence; it does not get to define what evidence is. `EvidenceSpan` and `EvidenceRef` ship in `ai_core.evidence` (Platform_Core v0.2.0) — M04 §5.1 makes the argument and owns the file. Two copies of the type that carries "every number traces to evidence" is exactly how that sentence quietly stops being true in whichever repo falls behind.
 
 ```python
-from ai_core.evidence  import EvidenceSpan, EvidenceRef   # NOT redefined here
-from ai_core.versions  import VersionStamp                 # M19's type (§45.1)
-from ai_core.telemetry import TokenUsage                   # {in, out, cached_in, cost_inr}
-from m12.contracts     import FusedAssessment              # optional at runtime (§6.11)
+from ai_core.evidence import EvidenceSpan, EvidenceRef    # NOT redefined here
 ```
+
+`VersionStamp`, `TokenUsage` and `DeliveryAssessment` (M12's `FusedAssessment`, as far as M13 needs it) are declared **locally in `contracts.py`** for now, each with a comment saying whose type it really is. They are promoted to `Platform_Core` on the day a second module needs the same shape — which is the same test `dependencies.txt` applies to everything else, and the reason `EvidenceRef` is already up there while these are not. Declaring `ai_core.versions` and `ai_core.telemetry` before anything imports them would be shipping a shared package to hold one caller's types.
+
+The one that will move first is `VersionStamp`: M04 stores it on every observation and M19 owns it, so it goes up when M13 starts emitting (milestone M5).
 
 Three fields M13 is responsible for populating correctly, because nobody downstream can:
 

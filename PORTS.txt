@@ -18,11 +18,14 @@ student never hops between ports.
 But every module ALSO runs standalone on its own reserved port, for focused
 development and debugging:
 
-    cd Backend   && .venv\Scripts\python -m uvicorn backend_M15_Company_Guider.app:app --port 8115
-    cd Frontend  && npm run dev --workspace @ai/m15-company-guider     (:5215)
+    cd Backend   && .venv\Scripts\python -m uvicorn backend_M13_Evaluation_Engine.app:app --port 8113
 
-    or simply:   start_company.bat        one module
+    or simply:   start_eval.bat           this module
                  start_all.bat            every module checked out next door
+
+  M13 has no frontend yet. Its student-facing surfaces — the evidence drawer,
+  the key-point checklist, the dispute dialog — arrive in milestone M10
+  (plan_in_depth/M13_Evaluation_Engine.md §14). Port 5213 stays reserved.
 
 Both put every service in ONE Windows Terminal window, one tab each, with the
 control tab last. Ports live in scripts\services.txt - which reads them from

@@ -165,3 +165,37 @@ def test_delivery_is_absent_not_zero(turn):
     """EC-13.14 / Rule 2 — M12 is Phase 3 and its absence omits a section."""
     evaluation = evaluate_turn(turn, llm=StubLLM("honest"))
     assert evaluation.delivery is None
+
+
+@pytest.mark.gate
+def test_only_scored_delivery_signals_can_reach_a_numeric():
+    """AC-13.17 — M12's validity gate has to survive the module boundary.
+
+    M12 FR-12.10 is P0: no signal reaches `scored` without a completed validity
+    record. Flattening delivery to `dict[str, float]` here would erase
+    `disposition`, and the gate that makes the facial-analysis work defensible
+    rather than a liability would stop being enforceable one module downstream.
+    Carrying the type is what keeps it checkable — this is that check.
+    """
+    from backend_M13_Evaluation_Engine.contracts import (
+        DeliveryAssessment,
+        DeliveryDisposition,
+    )
+
+    delivery = DeliveryAssessment(
+        subscores={"fluency": 3.0, "presence": 2.0, "clarity": 4.0, "structure": 1.0},
+        dispositions={
+            "fluency": DeliveryDisposition.scored,
+            "presence": DeliveryDisposition.coaching,
+            "clarity": DeliveryDisposition.diagnostic,
+            "structure": DeliveryDisposition.suppressed,
+        },
+    )
+
+    assert delivery.scored_subscores() == {"fluency": 3.0}
+
+    # A signal with no recorded disposition is NOT scored. Defaulting the other
+    # way would make an un-validated signal count, which is the exact failure
+    # M12's protocol exists to prevent.
+    unknown = DeliveryAssessment(subscores={"mystery": 4.0}, dispositions={})
+    assert unknown.scored_subscores() == {}

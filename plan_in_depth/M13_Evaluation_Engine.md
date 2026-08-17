@@ -78,7 +78,7 @@ Six deliberate elements:
 
 Two things happen: the score is queued for human review, **and** a re-test is scheduled regardless. The re-test is the part that matters — it resolves the disagreement with data rather than with argument, and the student gets a second chance immediately.
 
-**Both halves need plumbing that is not M13's to invent.** The re-test is a row in M04's `m04_retest_queue` (M04 §6.9), written with `requested_by="M13"`, `reason="dispute"` and `bypass_freshness=true` — that last flag exists because M5 never repeats an item within 90 days, so without it the promise on screen is empty. The human half is a queue with an owner and a rota; §7 exposes it and §15.7 names who holds it. A two-day SLA with nobody on the other end is worse than no promise.
+**Both halves need plumbing that is not M13's to invent.** The re-test is a row in M04's `m04_retest_queue` (M04 §6.9), carrying `requested_by="M13"`, `reason="dispute"` and `bypass_freshness=true` — that last flag exists because M5 never repeats an item within 90 days, so without it the promise on screen is empty. **M04 owns that write**: M13 calls `POST /v1/candidates/{cid}/mastery/{concept_id}/dispute` and M04 enqueues the row, which is better than M13 reaching into another module's table. The human half is a queue with an owner and a rota; §7 exposes it and §15.7 names who holds it. A two-day SLA with nobody on the other end is worse than no promise.
 
 Dispute rate is a **monitored signal, not a target** (§13). A rising dispute rate on one dimension is the most valuable quality alarm this module has, and a metric that rewards suppressing it destroys the alarm. The number that is a gate is the *upheld* rate.
 
@@ -524,7 +524,8 @@ Equal-length substitution is the entire trick, and it is what keeps verification
     Delivery dimensions are excluded by construction — never averaged in.
 
 [8] EMIT
-    → M04  POST /v1/observations  (batch, one transaction)
+    → M04  POST /v1/candidates/{candidate_id}/observations   (batch, one txn)
+           header X-Service-Secret; M04 gates every write path on it
            one observation per (turn, concept) from the CONCEPT-BEARING
            dimension; communication dimensions → communication concepts only.
            Carries raw_category, n_categories=5, response_model="grm",
@@ -641,8 +642,8 @@ A rubric bump enqueues `rescore_job` over affected turns (raw answers are immuta
 
 ```
 append the new TurnEvaluation (superseded_by set on the old)
-  → POST {M04}/v1/observations/{id}/retract   reason="rescore"
-  → POST {M04}/v1/observations                the new one
+  → retract the superseded observation on M04              ← NOT YET EXPOSED
+  → POST {M04}/v1/candidates/{cid}/observations   the new one
 ```
 
 EC-13.13 (upheld dispute) has exactly the same shape and takes the same path.
@@ -734,7 +735,20 @@ GET  /v1/eval/bias-audit                subgroup report
 
 **Internal-only endpoints are service-to-service** — the dispute queue, the rating workbench, the calibration fit and the re-score triggers. Minimum viable: a shared-secret header read from `keys.txt`, checked by one dependency, with the check tested. Saying "internal only" without a mechanism is how it becomes public.
 
-**Two outbound calls M13 makes** and which therefore belong in `module.json` rather than here: `POST {M04}/v1/observations` (batch, §6.4 step 8), `POST {M04}/v1/retest-queue` (dispute, §2.3), plus the M02 coverage-ledger write. All three degrade to an outbox.
+**Outbound calls M13 makes**, which belong in `module.json` rather than here. These are M04's **real, shipped** paths, checked against its router rather than assumed — an earlier draft of this section invented `/v1/observations` and `/v1/retest-queue`, and neither exists:
+
+```
+POST {M04}/v1/candidates/{candidate_id}/observations              batch, §6.4 step 8
+POST {M04}/v1/candidates/{cid}/mastery/{concept_id}/dispute       dispute → re-test, §2.3
+     (M04 enqueues the retest_queue row itself; M13 does not write that table)
+```
+
+Both require the `X-Service-Secret` header — M04 gates every write path on it, so M13 needs the secret in `required_keys.txt` before milestone M5 and not after. All outbound calls degrade to an outbox.
+
+**Two contract items to settle with M04 before M5, both found by reading its code:**
+
+- **`consent_id` is required on `ObservationIn`**, with no default. A turn scored without one cannot be emitted at all, so consent has to be resolved at session start (M6) rather than at scoring time.
+- **`VersionStamp` has already drifted.** M04 declares it locally with `str` fields and defaults (`"1.0"`, `"none"`, `"dev"`) and **no `extractor_versions`**; M13 declares it locally as `str | None` with `extractor_versions`, matching M19 §5. Posting M13's shape to M04 is a 422 today. It is the second consumer, so the type belongs in `ai_core` now (§5.1's promotion test), and whichever shape wins should be M19's.
 
 ---
 

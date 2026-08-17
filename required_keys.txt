@@ -30,6 +30,21 @@ ANTHROPIC_API_KEY="sk-ant-replace-me"
 
 
 -------------------------------------------------------------------------------
+  SERVICE_SECRET                                    (needed at milestone M5)
+-------------------------------------------------------------------------------
+  Buys you:   the write path to M04. Every M04 endpoint that changes a
+              student's record is gated on an `X-Service-Secret` header
+              (M04 router `require_service`), and the observation emit in
+              §6.4 step 8 is one of them.
+  Not used yet: M13 does not emit observations in the current slice. Declared
+              here now because "M13 was ready but had no credential" is a
+              worse discovery on the day M5 lands than a line in this file.
+  Must match:  the same value in M04's keys.txt.
+
+# SERVICE_SECRET="shared-with-M04"
+
+
+-------------------------------------------------------------------------------
   OPTIONAL OVERRIDES
 -------------------------------------------------------------------------------
   Model per job. Defaults come from master plan §47.1 and are deliberately

@@ -33,7 +33,7 @@ $sessionFile = Join-Path $RunDir 'session.json'
 if (-not (Test-Path $sessionFile)) {
     Write-Host ''
     Write-Host '  No session to control (.run\session.json is missing).' -ForegroundColor Red
-    Write-Host '  Start things with start_all.bat or start_company.bat.' -ForegroundColor DarkGray
+    Write-Host '  Start things with start_all.bat or start_eval.bat.' -ForegroundColor DarkGray
     Write-Host ''
     [void](Read-Host '  Press Enter to close')
     exit 1

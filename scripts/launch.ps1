@@ -1,5 +1,5 @@
 <#
-    The launcher engine. Both start_all.bat and start_company.bat call this;
+    The launcher engine. Both start_all.bat and start_eval.bat call this;
     there is exactly one implementation of "bring services up".
 
     Everything it launches lands in ONE Windows Terminal window, one tab per

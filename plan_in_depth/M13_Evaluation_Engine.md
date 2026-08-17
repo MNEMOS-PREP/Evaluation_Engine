@@ -181,9 +181,9 @@ M13 **produces** evidence; it does not get to define what evidence is. `Evidence
 from ai_core.evidence import EvidenceSpan, EvidenceRef    # NOT redefined here
 ```
 
-`VersionStamp`, `TokenUsage` and `DeliveryAssessment` (M12's `FusedAssessment`, as far as M13 needs it) are declared **locally in `contracts.py`** for now, each with a comment saying whose type it really is. They are promoted to `Platform_Core` on the day a second module needs the same shape — which is the same test `dependencies.txt` applies to everything else, and the reason `EvidenceRef` is already up there while these are not. Declaring `ai_core.versions` and `ai_core.telemetry` before anything imports them would be shipping a shared package to hold one caller's types.
+`VersionStamp` **moved to `ai_core.versions` in Platform_Core v0.4.0**, and the way it got there is the argument for the rule: M04 and M13 had each written their own copy, and the copies had already diverged — M04 with `str` fields and invented defaults (`"1.0"`, `"none"`, `"dev"`) and no `extractor_versions`, M13 with `str | None` and `extractor_versions`, matching M19 §5. Posting M13's shape to M04 was a 422 nobody had hit only because the emit was not wired yet. M19's shape won, because nullable is the honest representation: a module with no calibration has no `calibration_version`, and `"1.0"` is a version number nobody chose that makes an uncalibrated score look comparable to a calibrated one.
 
-The one that will move first is `VersionStamp`: M04 stores it on every observation and M19 owns it, so it goes up when M13 starts emitting (milestone M5).
+`TokenUsage` and `DeliveryAssessment` (M12's `FusedAssessment`, as far as M13 needs it) stay **local to `contracts.py`**, each with a comment saying whose type it really is. They go up on the day a second module needs the same shape — the same test `dependencies.txt` applies to everything else. Declaring `ai_core.telemetry` before anything imports it would be shipping a shared package to hold one caller's types.
 
 Three fields M13 is responsible for populating correctly, because nobody downstream can:
 

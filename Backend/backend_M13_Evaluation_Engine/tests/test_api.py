@@ -24,6 +24,16 @@ def test_status_matches_the_platform_registry(client):
     assert body["id"] == "M13"
 
 
+def test_the_registry_knows_this_module_is_built(client):
+    """`ai_core.modules_meta` shipped M13 as `implemented: False` for a while.
+
+    The endpoint that exists to tell the platform what is built was reporting
+    its own module as unbuilt — which nothing failed on, because nothing
+    checked. This is the check.
+    """
+    assert client.get("/status").json()["implemented"] is True
+
+
 @pytest.mark.gate
 def test_deps_declares_no_required_upstream(client):
     """M13 must not fail because someone else is down.

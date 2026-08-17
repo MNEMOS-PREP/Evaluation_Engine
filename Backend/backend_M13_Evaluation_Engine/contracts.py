@@ -29,6 +29,7 @@ from typing import Literal
 from uuid import UUID
 
 from ai_core.evidence import EvidenceRef
+from ai_core.versions import VersionStamp
 from pydantic import BaseModel, Field, model_validator
 
 #: The rubric scale. 0..4 anchored ordinal, everywhere, forever (§6.1).
@@ -308,25 +309,6 @@ class DeliveryAssessment(BaseModel):
             for key, value in self.subscores.items()
             if self.dispositions.get(key) is DeliveryDisposition.scored
         }
-
-
-class VersionStamp(BaseModel):
-    """M19's type (§45.1), local until `ai_core.versions` exists.
-
-    Stamping a subset is how "you improved 30%" quietly becomes false: without
-    `code_sha` a re-score cannot be attributed to a code change, which is the
-    one attribution the regression suite exists to make.
-    """
-
-    rubric_version: str | None = None
-    prompt_version: str | None = None
-    #: Names the ENSEMBLE config, not one member — an ensemble legitimately
-    #: spans two model ids, which live on each `EvaluatorOutput`.
-    model_id: str | None = None
-    calibration_version: str | None = None
-    item_bank_version: str | None = None
-    extractor_versions: dict[str, str] | None = None
-    code_sha: str = "unknown"
 
 
 class EvaluationStatus(StrEnum):

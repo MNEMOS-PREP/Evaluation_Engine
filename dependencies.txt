@@ -82,9 +82,9 @@ it later. The rubric loader refuses to load a rubric that declares zero or two
 
 SHARED PLATFORM CODE  —  a versioned dependency, not a copy
 -------------------------------------------------------------------------------
-    https://github.com/MNEMOS-PREP/Platform_Core   (public)   pinned at v0.5.0
+    https://github.com/MNEMOS-PREP/Platform_Core   (public)   pinned at v0.6.0
 
-  Backend    ai-core @ git+https://github.com/MNEMOS-PREP/Platform_Core@v0.5.0#subdirectory=python
+  Backend    ai-core @ git+https://github.com/MNEMOS-PREP/Platform_Core@v0.6.0#subdirectory=python
 
 **`EvidenceSpan` and `EvidenceRef` are platform contracts, not module code.**
 M13 *produces* evidence; it does not get to decide what evidence is. The type

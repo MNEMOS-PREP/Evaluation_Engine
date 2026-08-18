@@ -33,7 +33,7 @@ from .contracts import (
 )
 from .evaluator import EvaluationRequest, evaluate_once
 from .evidence import Artifact, ArtifactSet
-from .llm import LLM
+from .llm import LLM, get_llm, grade_of
 from .projection import project_for_evaluator
 from .rubrics import get_rubric
 from .schemas import PROMPT_VERSION
@@ -170,7 +170,8 @@ def evaluate_turn(
         evaluator_index=0,
         context={"round_type": round_type},
     )
-    output = evaluate_once(request, llm=llm)
+    client = llm or get_llm()
+    output = evaluate_once(request, llm=client)
 
     scores = list(output.scores)
     apply_hint_credit(scores, active_rubric, turn.hint_level_used)
@@ -199,6 +200,7 @@ def evaluate_turn(
         scaffold_used=False,
         evaluators=[output],
         ensemble_config=ENSEMBLE_SINGLE,
+        score_grade=str(grade_of(client)),
         aggregated=scores,
         spread_levels=spread,
         agreement=agreement,

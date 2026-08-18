@@ -52,6 +52,7 @@ def dependencies() -> dict:
         "dependencies": [d.model_dump(mode="json") for d in deps().statuses()],
         "degraded": [f.model_dump(mode="json") for f in deps().degraded()],
         "evaluation_available": llm_module.is_available(),
+        "evaluator": llm_module.describe(),
     }
 
 

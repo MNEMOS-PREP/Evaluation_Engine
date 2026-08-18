@@ -105,13 +105,11 @@ def _artifact_text_from_prompt(user: str) -> str:
 
 
 def _dimension_keys_from_schema(schema: dict) -> list[str]:
-    variants = schema["properties"]["scores"]["items"]["anyOf"]
-    return [v["properties"]["dimension_key"]["enum"][0] for v in variants]
+    return list(schema["properties"]["scores"]["items"]["properties"]["dimension_key"]["enum"])
 
 
 def _artifact_id_from_schema(schema: dict) -> str:
-    variants = schema["properties"]["scores"]["items"]["anyOf"]
-    span = variants[0]["properties"]["evidence"]["items"]
+    span = schema["properties"]["scores"]["items"]["properties"]["evidence"]["items"]
     return span["properties"]["artifact_id"]["enum"][0]
 
 

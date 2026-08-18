@@ -333,6 +333,12 @@ class TurnEvaluation(BaseModel):
     scaffold_used: bool = False
     evaluators: list[EvaluatorOutput] = Field(default_factory=list)
     ensemble_config: str = "n1_dev"
+    #: What these scores are FIT FOR (§11). A free-tier evaluation is a real
+    #: evaluation with real verified evidence — it is simply not eligible to
+    #: be displayed as a number or to enter the calibration corpus. Storing
+    #: the grade on the row is what makes that enforceable later, when the
+    #: corpus is assembled by a query rather than by whoever remembers.
+    score_grade: str = "dev"
     aggregated: list[DimensionScore] = Field(default_factory=list)
     #: max − min. ONE definition (§6.4) — the earlier draft called it σ in the
     #: contract and max−min in the pipeline, and with N=3 on a 0–4 scale those

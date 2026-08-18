@@ -55,7 +55,22 @@ def _span_schema(artifact_ids: list[UUID]) -> dict:
     }
 
 
-def _dimension_schema(dimension: RubricDimension, artifact_ids: list[UUID]) -> dict:
+def _dimension_schema(dimensions: list[RubricDimension], artifact_ids: list[UUID]) -> dict:
+    """ONE item schema covering every dimension, not one variant per dimension.
+
+    The earlier shape was an `anyOf` of per-dimension objects, each pinning
+    `dimension_key` to a single-value enum so the anchors could ride along in
+    that variant's `raw_score` description. It was too clever and it did not
+    survive contact with a second provider: Groq rejects it outright —
+
+        anyOf disambiguation failed: multiple candidate properties
+        dimension_key, raw_score [discriminator_multiple_candidates]
+
+    — because both properties are enums and neither is an obvious
+    discriminator. One uniform object with `dimension_key` enumerated over all
+    the keys is portable, and it loses nothing: the anchors are already in the
+    prompt in full, which is where a model actually reads them.
+    """
     return {
         "type": "object",
         "additionalProperties": False,
@@ -68,12 +83,15 @@ def _dimension_schema(dimension: RubricDimension, artifact_ids: list[UUID]) -> d
             "model_confidence",
         ],
         "properties": {
-            "dimension_key": {"type": "string", "enum": [dimension.key]},
+            "dimension_key": {"type": "string", "enum": [d.key for d in dimensions]},
             "raw_score": {
                 "type": "integer",
                 # NOT minimum/maximum — structured outputs drop those.
                 "enum": list(range(SCALE_MIN, SCALE_MAX + 1)),
-                "description": _anchor_text(dimension),
+                "description": (
+                    "The anchored level for this dimension, 0-4. The anchors are "
+                    "in the RUBRIC block of the message; use them literally."
+                ),
             },
             "reasoning": {
                 "type": "string",
@@ -100,11 +118,6 @@ def _dimension_schema(dimension: RubricDimension, artifact_ids: list[UUID]) -> d
     }
 
 
-def _anchor_text(dimension: RubricDimension) -> str:
-    lines = [f"{level}: {dimension.anchors[level]}" for level in sorted(dimension.anchors)]
-    return " | ".join(lines)
-
-
 def evaluator_schema(
     rubric: Rubric, artifact_ids: list[UUID], *, context: dict | None = None
 ) -> dict:
@@ -118,11 +131,11 @@ def evaluator_schema(
         "properties": {
             "scores": {
                 "type": "array",
+                # Exactly one score per applicable dimension — the count is
+                # what stops a model answering only the easy ones.
                 "minItems": len(dimensions),
                 "maxItems": len(dimensions),
-                "items": {
-                    "anyOf": [_dimension_schema(d, artifact_ids) for d in dimensions],
-                },
+                "items": _dimension_schema(dimensions, artifact_ids),
             },
             "overall_note": {"type": "string"},
             "disqualifiers_triggered": {

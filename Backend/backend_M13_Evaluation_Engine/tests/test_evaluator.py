@@ -42,8 +42,8 @@ def test_raw_score_is_an_enum_not_a_range(rubric):
     happens. `enum` is what makes that edge case real.
     """
     schema = evaluator_schema(rubric, [uuid.uuid4()])
-    variant = schema["properties"]["scores"]["items"]["anyOf"][0]
-    raw_score = variant["properties"]["raw_score"]
+    item = schema["properties"]["scores"]["items"]
+    raw_score = item["properties"]["raw_score"]
 
     assert raw_score["enum"] == list(range(SCALE_MIN, SCALE_MAX + 1))
     assert "minimum" not in raw_score
@@ -54,26 +54,22 @@ def test_artifact_id_is_enumerated(rubric):
     """A hallucinated artifact id is made structurally impossible, not caught later."""
     ids = [uuid.uuid4(), uuid.uuid4()]
     schema = evaluator_schema(rubric, ids)
-    variant = schema["properties"]["scores"]["items"]["anyOf"][0]
-    span = variant["properties"]["evidence"]["items"]
+    span = schema["properties"]["scores"]["items"]["properties"]["evidence"]["items"]
     assert span["properties"]["artifact_id"]["enum"] == [str(i) for i in ids]
 
 
 def test_schema_is_closed_and_fully_required(rubric):
     schema = evaluator_schema(rubric, [uuid.uuid4()])
-    variant = schema["properties"]["scores"]["items"]["anyOf"][0]
+    item = schema["properties"]["scores"]["items"]
     assert schema["additionalProperties"] is False
-    assert variant["additionalProperties"] is False
-    assert set(variant["required"]) >= {"dimension_key", "raw_score", "evidence", "reasoning"}
-    assert variant["properties"]["evidence"]["minItems"] == 1
+    assert item["additionalProperties"] is False
+    assert set(item["required"]) >= {"dimension_key", "raw_score", "evidence", "reasoning"}
+    assert item["properties"]["evidence"]["minItems"] == 1
 
 
 def test_schema_follows_applies_when(rubric):
     schema = evaluator_schema(rubric, [uuid.uuid4()], context={"round_type": "dsa_verbal"})
-    keys = {
-        v["properties"]["dimension_key"]["enum"][0]
-        for v in schema["properties"]["scores"]["items"]["anyOf"]
-    }
+    keys = set(schema["properties"]["scores"]["items"]["properties"]["dimension_key"]["enum"])
     assert keys == {d.key for d in rubric.applicable({"round_type": "dsa_verbal"})}
 
 
@@ -198,7 +194,6 @@ def test_decorrelation_permutes_order_without_changing_content(view, artifacts):
 
 
 def _keys(call: dict) -> list[str]:
-    return [
-        v["properties"]["dimension_key"]["enum"][0]
-        for v in call["schema"]["properties"]["scores"]["items"]["anyOf"]
-    ]
+    return list(
+        call["schema"]["properties"]["scores"]["items"]["properties"]["dimension_key"]["enum"]
+    )

@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from ai_core.evidence import EvidenceSpan
+from pydantic import ValidationError
 
 from .contracts import DimensionScore, EvaluatorOutput, Rubric, TokenUsage
 from .evidence import ArtifactSet, verify_and_build
@@ -36,6 +37,21 @@ from .schemas import PROMPT_VERSION, evaluator_schema
 log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 2
+
+#: Output budget, sized from the rubric rather than fixed.
+#:
+#: A fixed 8000 was wrong in a way that only shows up on a rate-limited tier:
+#: Groq's free plan counts `max_tokens` against a per-minute token budget, so
+#: reserving 8000 for a reply that needs 900 spent the whole minute's quota on
+#: headroom and every request 413'd. Sizing it from the work — a score, a
+#: sentence of reasoning and a span per dimension — is both honest and what
+#: makes the free tier usable at all.
+TOKENS_PER_DIMENSION = 420
+TOKENS_OVERHEAD = 400
+
+
+def output_budget(dimension_count: int) -> int:
+    return TOKENS_OVERHEAD + TOKENS_PER_DIMENSION * max(1, dimension_count)
 
 SYSTEM_PROMPT = """\
 You are scoring one answer from a mock technical interview, against a rubric.
@@ -198,16 +214,30 @@ def _parse_scores(
             failures.append(f"{key}: no verifiable evidence")
             continue
 
-        scores.append(
-            DimensionScore(
-                dimension_key=key,
-                raw_score=int(raw.get("raw_score", 0)),
-                evidence=refs,
-                reasoning=str(raw.get("reasoning", "")).strip(),
-                missing_key_points=[str(k) for k in raw.get("missing_key_points", [])],
-                model_confidence=_clamp01(raw.get("model_confidence", 0.0)),
+        # EC-13.12, and the reason it is re-checked here rather than left to
+        # the schema: on the Anthropic path `raw_score` is an enum and an
+        # out-of-range value cannot come back. On an OpenAI-compatible free
+        # tier the schema is a HINT — enforcement varies by model — so a 7 or
+        # a "3" or a null arrives looking perfectly well-formed. Rejecting it
+        # here turns "schema rejection" into something that is true on every
+        # provider rather than only on the expensive one.
+        try:
+            scores.append(
+                DimensionScore(
+                    dimension_key=key,
+                    raw_score=int(raw.get("raw_score")),  # type: ignore[arg-type]
+                    evidence=refs,
+                    reasoning=str(raw.get("reasoning", "")).strip(),
+                    missing_key_points=[str(k) for k in raw.get("missing_key_points", [])],
+                    model_confidence=_clamp01(raw.get("model_confidence", 0.0)),
+                )
             )
-        )
+        except (ValidationError, ValueError, TypeError) as exc:
+            failures.append(
+                f"{key}: raw_score {raw.get('raw_score')!r} is not an integer "
+                f"in 0..4 ({type(exc).__name__})"
+            )
+            continue
 
     flags = [str(f) for f in data.get("disqualifiers_triggered", [])]
     return scores, failures, flags
@@ -254,7 +284,11 @@ def evaluate_once(request: EvaluationRequest, *, llm: LLM | None = None) -> Eval
     for attempt in range(1, MAX_ATTEMPTS + 1):
         user = build_user_prompt(request, dimensions=dimensions, retry_note=retry_note)
         result = client.structured(
-            job=JOB_EVALUATE, system=SYSTEM_PROMPT, user=user, schema=schema
+            job=JOB_EVALUATE,
+            system=SYSTEM_PROMPT,
+            user=user,
+            schema=schema,
+            max_tokens=output_budget(len(dimensions)),
         )
         output.model_id = result.model or output.model_id
         output.latency_ms += result.latency_ms

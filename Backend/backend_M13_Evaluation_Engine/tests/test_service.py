@@ -9,9 +9,8 @@ from backend_M13_Evaluation_Engine.contracts import (
     DimensionScore,
     EvaluationStatus,
 )
+from backend_M13_Evaluation_Engine.ensemble import N1_PRACTICE, agreement_for
 from backend_M13_Evaluation_Engine.service import (
-    ENSEMBLE_SINGLE,
-    agreement_for,
     apply_hint_credit,
     compose,
     evaluate_turn,
@@ -92,7 +91,7 @@ def test_composite_is_none_if_any_dimension_is_uncalibrated(rubric):
     for score in scores:
         score.calibrated_score = 3.0
     scores[1].calibrated_score = None
-    assert compose(scores, rubric, display_numeric=True) is None
+    assert compose(scores, rubric) is None
 
 
 def test_composite_is_weighted_when_everything_is_calibrated(rubric):
@@ -102,7 +101,7 @@ def test_composite_is_weighted_when_everything_is_calibrated(rubric):
         score.calibrated_score = 4.0 if dimension.key == "correctness" else 2.0
         scores.append(score)
 
-    result = compose(scores, rubric, display_numeric=True)
+    result = compose(scores, rubric)
     expected = (4.0 * 0.40 + 2.0 * 0.35 + 2.0 * 0.25) / (0.40 + 0.35 + 0.25)
     assert result == pytest.approx(expected, abs=1e-3)
 
@@ -113,13 +112,13 @@ def test_composite_is_weighted_when_everything_is_calibrated(rubric):
 @pytest.mark.gate
 def test_a_single_evaluator_is_never_high_agreement():
     """"1 of 1 agreed" is not evidence, and §8.1 forbids rendering it as such."""
-    assert agreement_for(0, single_evaluator=True) is Agreement.medium
+    assert agreement_for(0, members=1) is Agreement.medium
 
 
 def test_ensemble_agreement_tracks_spread():
-    assert agreement_for(0, single_evaluator=False) is Agreement.high
-    assert agreement_for(1, single_evaluator=False) is Agreement.medium
-    assert agreement_for(2, single_evaluator=False) is Agreement.low
+    assert agreement_for(0, members=3) is Agreement.high
+    assert agreement_for(1, members=3) is Agreement.medium
+    assert agreement_for(2, members=3) is Agreement.low
 
 
 # ── end to end ───────────────────────────────────────────────────────────
@@ -129,12 +128,12 @@ def test_evaluate_turn_produces_a_complete_evaluation(turn):
     evaluation = evaluate_turn(turn, llm=StubLLM("honest"))
 
     assert evaluation.status is EvaluationStatus.complete
-    assert evaluation.ensemble_config == ENSEMBLE_SINGLE
+    assert evaluation.ensemble_config == N1_PRACTICE.name
     assert len(evaluation.aggregated) == 3
     assert evaluation.composite is None, "nothing is calibrated yet, so no number"
     assert evaluation.artifact_checksums
     assert evaluation.versions.rubric_version == "1.0.0"
-    assert evaluation.versions.model_id == ENSEMBLE_SINGLE
+    assert evaluation.versions.model_id == N1_PRACTICE.name
 
 
 @pytest.mark.gate

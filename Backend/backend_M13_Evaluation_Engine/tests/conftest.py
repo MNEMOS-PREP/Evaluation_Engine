@@ -14,7 +14,10 @@ import uuid
 from collections.abc import Iterator
 
 import pytest
+from ai_core.db import get_session
 from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
 from backend_M13_Evaluation_Engine import llm as llm_module
 from backend_M13_Evaluation_Engine import rubrics
@@ -180,9 +183,29 @@ def turn_fixture(questions, answer) -> TurnInput:
     )
 
 
+@pytest.fixture(name="engine")
+def engine_fixture():
+    """In-memory, per test. No test writes to anyone's dev.db."""
+    from backend_M13_Evaluation_Engine import models  # noqa: F401 - registers tables
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    SQLModel.metadata.create_all(engine)
+    return engine
+
+
+@pytest.fixture(name="session")
+def session_fixture(engine) -> Iterator[Session]:
+    with Session(engine) as session:
+        yield session
+
+
 @pytest.fixture(name="client")
-def client_fixture() -> Iterator[TestClient]:
+def client_fixture(session: Session) -> Iterator[TestClient]:
     from backend_M13_Evaluation_Engine.app import app
 
+    app.dependency_overrides[get_session] = lambda: session
     with TestClient(app) as client:
         yield client
+    app.dependency_overrides.clear()

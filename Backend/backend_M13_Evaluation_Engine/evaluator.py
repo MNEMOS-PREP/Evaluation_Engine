@@ -113,7 +113,13 @@ def _order_dimensions(rubric: Rubric, seed: int, context: dict[str, str]) -> lis
     return shuffled
 
 
-def build_user_prompt(request: EvaluationRequest, *, dimensions: list, retry_note: str = "") -> str:
+def build_user_prompt(
+    request: EvaluationRequest,
+    *,
+    dimensions: list,
+    retry_note: str = "",
+    extra_context: str = "",
+) -> str:
     view = request.view
     parts: list[str] = []
 
@@ -121,6 +127,12 @@ def build_user_prompt(request: EvaluationRequest, *, dimensions: list, retry_not
         parts.append(
             "YOUR PREVIOUS RESPONSE WAS REJECTED. Fix the offsets and re-answer.\n" + retry_note
         )
+
+    if extra_context:
+        # The adjudicator's view of what the evaluators said. It goes AFTER the
+        # rejection note and BEFORE the question, so the reconciler reads the
+        # disagreement as framing rather than as part of the answer.
+        parts.append(extra_context)
 
     parts.append(f"QUESTION\n{view.question_stem}")
     parts.append(f"REFERENCE ANSWER (one good answer, not the only one)\n{view.reference_answer}")
@@ -265,13 +277,33 @@ def _actual_text(request: EvaluationRequest, span: EvidenceSpan) -> str:
     return artifact.text[span.start : span.end][:120]
 
 
-def evaluate_once(request: EvaluationRequest, *, llm: LLM | None = None) -> EvaluatorOutput:
-    """Run one evaluator, with the reject-and-retry loop of §6.3."""
+def evaluate_once(
+    request: EvaluationRequest,
+    *,
+    llm: LLM | None = None,
+    system_prompt: str | None = None,
+    extra_context: str = "",
+    job: str = JOB_EVALUATE,
+    only_dimensions: list[str] | None = None,
+) -> EvaluatorOutput:
+    """Run one evaluator, with the reject-and-retry loop of §6.3.
+
+    The four keyword arguments exist so the adjudicator (§6.4 step 5) is the
+    same function with a different prompt rather than a parallel
+    implementation. That matters more than it looks: the adjudicator's evidence
+    has to clear exactly the same verification, and a second code path is how
+    one of them quietly stops doing that.
+    """
     client = llm or get_llm()
     context = request.context or {"round_type": request.view.rubric.round_type}
     dimensions = _order_dimensions(request.view.rubric, request.dimension_order_seed, context)
+    if only_dimensions is not None:
+        wanted = set(only_dimensions)
+        dimensions = [d for d in dimensions if d.key in wanted]
     artifact_ids = list(request.artifacts.artifacts)
-    schema = evaluator_schema(request.view.rubric, artifact_ids, context=context)
+    schema = evaluator_schema(
+        request.view.rubric, artifact_ids, context=context, only=only_dimensions
+    )
 
     output = EvaluatorOutput(
         evaluator_index=request.evaluator_index,
@@ -282,10 +314,15 @@ def evaluate_once(request: EvaluationRequest, *, llm: LLM | None = None) -> Eval
 
     retry_note = ""
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        user = build_user_prompt(request, dimensions=dimensions, retry_note=retry_note)
+        user = build_user_prompt(
+            request,
+            dimensions=dimensions,
+            retry_note=retry_note,
+            extra_context=extra_context,
+        )
         result = client.structured(
-            job=JOB_EVALUATE,
-            system=SYSTEM_PROMPT,
+            job=job,
+            system=system_prompt or SYSTEM_PROMPT,
             user=user,
             schema=schema,
             max_tokens=output_budget(len(dimensions)),

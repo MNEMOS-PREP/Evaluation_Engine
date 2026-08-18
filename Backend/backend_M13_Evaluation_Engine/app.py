@@ -19,10 +19,13 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+from ai_core.db import create_all, engine
 from ai_core.modules_meta import ModuleStatus, module_status
+from ai_core.schema_repair import ensure_schema
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import models as _models  # noqa: F401 - registers tables
 from . import rubrics
 from .keys import load_keys
 from .router import router
@@ -33,6 +36,12 @@ log = logging.getLogger("uvicorn.error")
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     load_keys()
+    # create_all() makes missing TABLES and ignores existing ones, so a model
+    # that gained a field leaves an older dev.db one column short and the next
+    # query 500s. ensure_schema() adds those columns, additively.
+    create_all()
+    for change in ensure_schema(engine):
+        log.info("schema: added missing column %s", change)
     loaded = rubrics.load_all()
     log.info("M13 ready — rubrics: %s", ", ".join(sorted(loaded)) or "none")
     yield

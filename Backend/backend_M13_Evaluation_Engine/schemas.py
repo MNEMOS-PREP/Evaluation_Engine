@@ -119,10 +119,22 @@ def _dimension_schema(dimensions: list[RubricDimension], artifact_ids: list[UUID
 
 
 def evaluator_schema(
-    rubric: Rubric, artifact_ids: list[UUID], *, context: dict | None = None
+    rubric: Rubric,
+    artifact_ids: list[UUID],
+    *,
+    context: dict | None = None,
+    only: list[str] | None = None,
 ) -> dict:
-    """The JSON schema for one evaluator call."""
+    """The JSON schema for one evaluator call.
+
+    `only` narrows it to the contested dimensions for the adjudicator, so it
+    re-decides what was disputed and does not re-litigate what everyone agreed
+    on — that would be a different measurement wearing the same name.
+    """
     dimensions = rubric.applicable(context or {})
+    if only is not None:
+        wanted = set(only)
+        dimensions = [d for d in dimensions if d.key in wanted]
     disqualifier_keys = [d.key for d in rubric.disqualifiers]
     return {
         "type": "object",

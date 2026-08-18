@@ -10,7 +10,7 @@ Given an answer, produce a score a human rater would agree with, and prove it by
 git clone https://github.com/MNEMOS-PREP/Evaluation_Engine
 cd Evaluation_Engine/Backend
 python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev]"
-.venv/Scripts/python -m pytest          # 83 passed, no network, no API key
+.venv/Scripts/python -m pytest          # 127 passed, no network, no API key
 cd .. && start_eval.bat                 # API on :8113
 ```
 
@@ -20,22 +20,26 @@ No API key needed to run the tests or the server. Scoring is the one feature tha
 
 ## What is built
 
-This is milestones **M0–M3** of the [§14 build order](plan_in_depth/M13_Evaluation_Engine.md) — the spine, in highest-risk-first order.
+Milestones **M0–M5 and M9** of the [§14 build order](plan_in_depth/M13_Evaluation_Engine.md), plus the API surface for M6 and M10. The module is **complete with respect to its contracts with other modules** — see [CONTRACTS.md](CONTRACTS.md), which is the document to read before wiring a sibling.
 
 | Milestone | What landed |
 |---|---|
-| **M0 — Contracts & the seam** | `ai_core.evidence` consumed rather than redefined · `concept_bearing` · typed `AppliesWhen` · published hint-penalty table · `/health` + `/v1/deps` + `module.json` · fixture adapters for M5 and M12 |
-| **M1 — Rubrics** | Typed rubric schema, YAML loader, `dsa_verbal` authored with behavioural anchors at every level, disqualifiers as flags |
+| **M0 — Contracts & the seam** | `ai_core` evidence and version types consumed, not redefined · `concept_bearing` · typed `AppliesWhen` · published hint-penalty table · `/health` + `/v1/deps` + `module.json` · fixture adapters for M5 and M12 |
+| **M1 — Rubrics** | Typed schema, YAML loader, `dsa_verbal` with behavioural anchors at every level, disqualifiers as flags |
 | **M2 — Blind projection** | `EvaluatorView` and `PairwiseView`, both with the architectural leak test — **AC-13.2** |
-| **M3 — One evaluator** | Structured output with enum-constrained scores · span verification, repair and reject/retry · artifact snapshot + checksum · injection neutralisation — **AC-13.16** |
+| **M3 — One evaluator** | Enum-constrained structured output · span verification, repair and reject/retry · artifact snapshot + checksum · injection neutralisation — **AC-13.16** |
+| **M4 — Ensemble** | N-way independent members with rubric-neutral decorrelation, median aggregation, `spread_levels`, frontier adjudicator. A homogeneous config is **rejected**, not discouraged |
+| **M5 — Emit** | Key-point coverage (NLI adapter, lexical fallback) · M04 observations with M04's own uuid5 · M02 coverage ledger · M19 ledger entries · outbox with retract-on-rescore |
+| **M9 — Calibration** | Isotonic fit, QWK, Krippendorff α, ECE, length-bias β — and the display gate, with reasons in words a human can read |
+| *(API only)* | Dispute queue and resolution · human-rating intake with all three MFRM facets · calibration status |
 
-**83 tests, 14 of them release gates, ruff clean, and not one of them opens a socket.**
+**127 tests, 23 release gates, ruff clean, and not one of them opens a socket.**
 
 ### What is deliberately not built
 
-`GET /v1/deps` and the spec's §14 are the honest list, but the short version: no ensemble (M4), no NLI coverage or M04 observation emit (M5), no rater workbench (M6), no calibration and therefore **no displayed numbers** (M9), no student UI (M10). Endpoints for those are absent rather than stubbed — an endpoint that exists and returns a placeholder is worse than one that does not, because a caller writes against it and finds out later.
+No frontend (M10 — port 5213 reserved; the evidence drawer is served as JSON). No rater workbench UI, so **AC-13.15** — de-identified audio for peer raters — is not met and the queue returns ids rather than content. Fact-check (FR-13.10) and pairwise/Bradley–Terry (FR-13.11) are P1 and deferred.
 
----
+And the one that is not an engineering gap: **no calibration is fitted**, so `display_numeric` is false everywhere and `composite` is `None`. The module produces real, evidence-verified judgements today and refuses to show any of them as a number. That is gated on the annotation study — ethics clearance, then ~2,400 human ratings — which no amount of code shortens.
 
 ## The five things worth reading the code for
 
@@ -63,6 +67,11 @@ Backend/backend_M13_Evaluation_Engine/
   schemas.py      §6.4 — the structured-output contract
   evaluator.py    §6.3 — one evaluator with reject-and-retry
   service.py      §6.4 — freeze → project → score → credit → compose
+  ensemble.py     §6.4 — N members, median, spread, adjudication
+  coverage.py     §6.5 — key-point coverage; the method travels with the number
+  emit.py         §5  — what M04, M02 and M19 receive. Start here to wire a sibling.
+  calibration.py  §6.7 — isotonic, QWK, α, ECE, and the display gate
+  store.py        §6.11 — persistence, outbox, supersede-and-retract
   adapters.py     §6.11 — the M5/M12 seam, fixture-backed
   llm.py          §11 — provider, tiers, cost, cache-minimum guard
   fixtures/       the M5 stand-in AND the regression suite seed

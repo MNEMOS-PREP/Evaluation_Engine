@@ -1,0 +1,245 @@
+/*
+  CRITICAL — do not split this import out.
+
+  Tailwind v4 generates utilities from `@theme` only for files inside the entry
+  that imports Tailwind. Importing core's stylesheet and this one SEPARATELY
+  from standalone.tsx looks equivalent and is not: the custom properties get
+  emitted, so the page renders and nothing errors, but `bg-quote`,
+  `rounded-panel` and `text-display` are never generated and the layout
+  collapses in a way that looks like a CSS bug rather than a build one.
+
+  So the chain lives here: core first, this on top.
+*/
+@import "@ai/core/styles.css";
+
+/*
+  M13 — Evaluation Engine · design layer.
+
+  Layered ON TOP of @ai/core's tokens, not instead of them. The verification
+  palette is a PLATFORM CONTRACT and is inherited: `confirmed` is what a fact
+  whose provenance checks out looks like in every module, and a verified
+  evidence span is exactly that.
+
+  ── The idea ────────────────────────────────────────────────────────────────
+  Every other screen in this platform is about a thing the product knows. This
+  one is about a thing the STUDENT said. So the student's own words are the
+  page — set large, in a reading measure, with room to breathe — and the
+  scoring is annotation in the margin. Nothing here is allowed to be bigger
+  than the answer.
+
+  That inverts the usual dashboard instinct, and it is the point. A score
+  rendered as a big number with the transcript tucked in a collapsible drawer
+  teaches a student to look at the number. This module's entire argument is
+  that the number is worthless without the quote — so the quote gets the
+  typography and the number does not get rendered at all until it is earned.
+
+  Concretely: a serif-ish reading column for the answer, monospace for
+  everything with provenance attached (offsets, checksums, ids, versions),
+  highlights that are underlines-plus-tint rather than blocks of colour, and
+  a marginal column that never exceeds a third of the width.
+*/
+
+@theme {
+  /* ── type ──────────────────────────────────────────────────────────────
+     The answer is read, not scanned, so it gets a genuine reading size and a
+     looser line height than the platform default. Everything else is smaller
+     than it — deliberately, including the headings. */
+  --text-display: 2.25rem;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.028em;
+
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.2;
+  --text-title--letter-spacing: -0.02em;
+
+  --text-section: 1rem;
+  --text-section--line-height: 1.35;
+  --text-section--letter-spacing: -0.01em;
+
+  /* The transcript itself. */
+  --text-answer: 1.1875rem;
+  --text-answer--line-height: 1.75;
+  --text-answer--letter-spacing: -0.003em;
+
+  /* ── surface ───────────────────────────────────────────────────────────
+     Slightly warm and low contrast. This is read for minutes at a time,
+     often late, and pure white on pure grey is a glare surface. */
+  --color-canvas: oklch(0.981 0.004 92);
+  --color-surface: oklch(1 0 0);
+  --color-surface-sunken: oklch(0.967 0.005 92);
+  --color-line: oklch(0.918 0.006 92);
+  --color-line-strong: oklch(0.855 0.009 92);
+
+  --color-ink: oklch(0.2 0.014 92);
+  --color-ink-soft: oklch(0.455 0.013 92);
+  --color-ink-faint: oklch(0.605 0.011 92);
+
+  --color-brand: oklch(0.48 0.13 232);
+  --color-brand-hover: oklch(0.42 0.135 232);
+  --color-brand-soft: oklch(0.965 0.02 232);
+  --color-brand-line: oklch(0.86 0.05 232);
+
+  /* The evidence highlight. A tint plus an underline, never a solid block —
+     a block of colour behind body text costs more legibility than the
+     emphasis is worth, and this text has to stay readable while highlighted. */
+  --color-quote: oklch(0.955 0.055 156);
+  --color-quote-line: oklch(0.66 0.14 156);
+  --color-quote-active: oklch(0.915 0.09 156);
+
+  /* A passage the evaluator was shown a block in place of (EC-13.3). */
+  --color-blocked: oklch(0.955 0.03 25);
+  --color-blocked-line: oklch(0.74 0.1 25);
+
+  /* ── depth ─────────────────────────────────────────────────────────────
+     Hairlines. One shadow, for things that genuinely float. */
+  --shadow-card: none;
+  --shadow-raised:
+    0 1px 2px oklch(0.2 0.014 92 / 0.06), 0 12px 32px -12px oklch(0.2 0.014 92 / 0.18);
+
+  --radius-panel: 0.5rem;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  /* Dark mode. Tokens are redefined; nothing else in the app knows. */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --color-canvas: oklch(0.172 0.01 92);
+    --color-surface: oklch(0.212 0.011 92);
+    --color-surface-sunken: oklch(0.192 0.01 92);
+    --color-line: oklch(0.3 0.011 92);
+    --color-line-strong: oklch(0.4 0.013 92);
+
+    --color-ink: oklch(0.945 0.005 92);
+    --color-ink-soft: oklch(0.745 0.009 92);
+    --color-ink-faint: oklch(0.6 0.01 92);
+
+    --color-brand: oklch(0.74 0.12 232);
+    --color-brand-hover: oklch(0.81 0.11 232);
+    --color-brand-soft: oklch(0.26 0.05 232);
+    --color-brand-line: oklch(0.38 0.07 232);
+
+    --color-quote: oklch(0.27 0.05 156);
+    --color-quote-line: oklch(0.66 0.14 156);
+    --color-quote-active: oklch(0.34 0.075 156);
+
+    --color-blocked: oklch(0.27 0.05 25);
+    --color-blocked-line: oklch(0.62 0.13 25);
+
+    /* The verification palette keeps its MEANING and gains contrast. Colour is
+       never the only signal — every state also carries a text label — but a
+       green that reads as grey on a dark surface fails the students who rely
+       on the fast scan. */
+    --color-confirmed: oklch(0.77 0.15 156);
+    --color-confirmed-soft: oklch(0.26 0.05 156);
+    --color-confirmed-line: oklch(0.38 0.08 156);
+
+    --color-reported: oklch(0.79 0.14 76);
+    --color-reported-soft: oklch(0.27 0.05 76);
+    --color-reported-line: oklch(0.4 0.08 76);
+
+    --color-contested: oklch(0.75 0.16 25);
+    --color-contested-soft: oklch(0.27 0.06 25);
+    --color-contested-line: oklch(0.4 0.09 25);
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+  }
+
+  /* Offsets, levels, counts, costs — all compared against each other. */
+  table,
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /*
+    The provenance mark. Offsets, checksums, ids and versions are set in mono
+    at a small size wherever they appear, so "where did this come from" is
+    recognisable by SHAPE before it is read.
+  */
+  .provenance {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: -0.01em;
+    color: var(--color-ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rule-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+  }
+
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+  }
+
+  /*
+    An evidence highlight.
+
+    Underline-weight border rather than a filled block: the text under it has
+    to stay comfortably readable, because reading it is the entire point. The
+    `active` variant is what a hovered or selected dimension paints.
+  */
+  .quote-mark {
+    background: var(--color-quote);
+    box-shadow: inset 0 -2px 0 var(--color-quote-line);
+    border-radius: 2px;
+    padding: 0.05em 0.05em;
+    transition: background 140ms ease;
+  }
+
+  .quote-mark-active {
+    background: var(--color-quote-active);
+    box-shadow: inset 0 -2px 0 var(--color-quote-line);
+  }
+
+  /*
+    A neutralised passage. Struck AND labelled AND tinted — three signals,
+    because "we ignored this part of your answer" is a claim that has to
+    survive a monochrome screen and a screen reader.
+  */
+  .blocked-mark {
+    background: var(--color-blocked);
+    box-shadow: inset 0 -2px 0 var(--color-blocked-line);
+    text-decoration: line-through;
+    text-decoration-color: var(--color-blocked-line);
+    border-radius: 2px;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-sunken) 25%,
+      var(--color-line) 37%,
+      var(--color-surface-sunken) 63%
+    );
+    background-size: 400% 100%;
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
+    border-radius: 4px;
+  }
+
+  @keyframes skeleton-sweep {
+    0% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0 50%;
+    }
+  }
+}

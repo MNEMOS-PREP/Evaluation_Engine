@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@ai/core": ["./core/src/index.ts"],
+      "@ai/core/styles.css": ["./core/src/styles.css"]
+    }
+  },
+  "include": ["src", "../core/src"]
+}

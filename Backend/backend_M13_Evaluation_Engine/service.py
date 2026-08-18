@@ -148,8 +148,15 @@ def evaluate_turn(
     config: EnsembleConfig = N1_PRACTICE,
     scaffold: bool = True,
     lookup: CalibrationLookup | None = None,
+    artifacts: ArtifactSet | None = None,
 ) -> TurnEvaluation:
-    """Score one turn. Async in production (FR-13.19); synchronous here."""
+    """Score one turn. Async in production (FR-13.19); synchronous here.
+
+    A caller that intends to *store* the evaluation freezes the artifacts
+    itself and passes them in, so the bytes the spans index into are the ones
+    persisted. Freezing twice would mint fresh ids for the code and canvas
+    artifacts, and every span pointing at them would resolve to nothing.
+    """
     package = question or get_questions().get(turn.question_id)
     if package is None:
         raise LookupError(f"no question package for {turn.question_id}")
@@ -158,7 +165,7 @@ def evaluate_turn(
     active_rubric = rubric or get_rubric(round_type)
     client = llm or get_llm()
 
-    artifacts = freeze_artifacts(turn)
+    frozen = artifacts if artifacts is not None else freeze_artifacts(turn)
 
     # Step 1 — coverage. Shown to the evaluator only when `scaffold` is on,
     # and recorded either way, because the calibration fit stratifies on it.
@@ -177,7 +184,7 @@ def evaluate_turn(
     )
     request = EvaluationRequest(
         view=view,
-        artifacts=artifacts,
+        artifacts=frozen,
         session_id=turn.session_id,
         turn_id=turn.turn_id,
         context={"round_type": round_type},
@@ -211,7 +218,7 @@ def evaluate_turn(
         candidate_id=turn.candidate_id,
         session_id=turn.session_id,
         rubric_id=active_rubric.id,
-        artifact_checksums=artifacts.checksums,
+        artifact_checksums=frozen.checksums,
         key_point_coverage=cover.scores,
         scaffold_used=scaffold_used,
         evaluators=result.outputs,

@@ -2,7 +2,7 @@
 
 > **The spine.** Everything else in the platform is a producer or a consumer of this module.
 >
-> Spec: [plan_in_depth/M13_Evaluation_Engine.md](plan_in_depth/M13_Evaluation_Engine.md) (Revision 2) · Review that produced it: [M13_REVIEW.md](plan_in_depth/M13_REVIEW.md) · Ports: API `8113` ([PORTS.txt](PORTS.txt))
+> Spec: [plan_in_depth/M13_Evaluation_Engine.md](plan_in_depth/M13_Evaluation_Engine.md) (Revision 2) · Review that produced it: [M13_REVIEW.md](plan_in_depth/M13_REVIEW.md) · Ports: API `8113`, web `5213` ([PORTS.txt](PORTS.txt))
 
 Given an answer, produce a score a human rater would agree with, and prove it by quoting the exact words that earned it. That is the whole module, and it is the entire trust proposition of the product: a confidently fabricated "7.5/10" is worse than no score at all, because it teaches students the wrong things and no placement cell will ever rely on it.
 
@@ -10,8 +10,9 @@ Given an answer, produce a score a human rater would agree with, and prove it by
 git clone https://github.com/MNEMOS-PREP/Evaluation_Engine
 cd Evaluation_Engine/Backend
 python -m venv .venv && .venv/Scripts/python -m pip install -e ".[dev]"
-.venv/Scripts/python -m pytest          # 127 passed, no network, no API key
-cd .. && start_eval.bat                 # API on :8113
+.venv/Scripts/python -m pytest          # 134 passed, no network, no API key
+cd ../Frontend && npm install
+cd .. && start_eval.bat                 # API on :8113, web on :5213
 ```
 
 No API key needed to run the tests or the server. Scoring is the one feature that switches off without one, and `/v1/deps` says so rather than fabricating a number.
@@ -31,13 +32,13 @@ Milestones **M0–M5 and M9** of the [§14 build order](plan_in_depth/M13_Evalua
 | **M4 — Ensemble** | N-way independent members with rubric-neutral decorrelation, median aggregation, `spread_levels`, frontier adjudicator. A homogeneous config is **rejected**, not discouraged |
 | **M5 — Emit** | Key-point coverage (NLI adapter, lexical fallback) · M04 observations with M04's own uuid5 · M02 coverage ledger · M19 ledger entries · outbox with retract-on-rescore |
 | **M9 — Calibration** | Isotonic fit, QWK, Krippendorff α, ECE, length-bias β — and the display gate, with reasons in words a human can read |
-| *(API only)* | Dispute queue and resolution · human-rating intake with all three MFRM facets · calibration status |
+| **M10 — The UI** | The evidence drawer, the key-point checklist and the dispute dialog on `:5213` — plus a screen for every endpoint the API serves. See [Frontend/README.md](Frontend/README.md) |
 
-**127 tests, 23 release gates, ruff clean, and not one of them opens a socket.**
+**134 tests, 25 release gates, ruff clean, a clean `tsc`, and not one test opens a socket.**
 
 ### What is deliberately not built
 
-No frontend (M10 — port 5213 reserved; the evidence drawer is served as JSON). No rater workbench UI, so **AC-13.15** — de-identified audio for peer raters — is not met and the queue returns ids rather than content. Fact-check (FR-13.10) and pairwise/Bradley–Terry (FR-13.11) are P1 and deferred.
+No rater workbench that opens an answer, because **AC-13.15** — de-identification before a peer rater sees a transcript — is not built; the queue returns ids, the screen says why, and shipping a form that showed a classmate's name would have satisfied the endpoint while breaking the criterion protecting a real person. Fact-check (FR-13.10) and pairwise/Bradley–Terry (FR-13.11) are P1 and deferred.
 
 And the one that is not an engineering gap: **no calibration is fitted**, so `display_numeric` is false everywhere and `composite` is `None`. The module produces real, evidence-verified judgements today and refuses to show any of them as a number. That is gated on the annotation study — ethics clearance, then ~2,400 human ratings — which no amount of code shortens.
 
@@ -75,6 +76,11 @@ Backend/backend_M13_Evaluation_Engine/
   adapters.py     §6.11 — the M5/M12 seam, fixture-backed
   llm.py          §11 — provider, tiers, cost, cache-minimum guard
   fixtures/       the M5 stand-in AND the regression suite seed
+
+Frontend/frontend_M13_Evaluation_Engine/src/
+  components/Transcript.tsx   offsets become highlights. The trust proposition, rendered.
+  components/Judgement.tsx    the ONLY place that decides a number may be shown
+  api.ts                      one hook per endpoint, and no hook without one
 ```
 
 ## Conventions worth knowing before you edit

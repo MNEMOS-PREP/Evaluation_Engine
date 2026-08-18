@@ -27,12 +27,34 @@ from sqlmodel import Session, select
 
 from . import emit as emit_module
 from .contracts import TurnEvaluation
+from .evidence import ArtifactSet
 from .models import Calibration, Dispute, DisputeState, Evaluation, ObservationOutbox, OutboxState
 
 log = logging.getLogger(__name__)
 
 #: Give up re-sending after this many attempts and leave the row visible.
 MAX_OUTBOX_ATTEMPTS = 5
+
+
+def frozen_artifacts(artifacts: ArtifactSet | None) -> dict:
+    """The artifact set as stored JSON — text included, on purpose.
+
+    `neutralised` travels with it because a student is owed the reason a
+    passage of their own answer was disregarded, and that reason cannot be
+    recomputed later without re-running the detector at whatever version it
+    has drifted to by then.
+    """
+    if artifacts is None:
+        return {}
+    return {
+        str(artifact_id): {
+            "artifact_type": artifact.artifact_type,
+            "text": artifact.text,
+            "checksum": artifact.checksum,
+            "neutralised": [list(r) for r in artifacts.neutralised.get(artifact_id, [])],
+        }
+        for artifact_id, artifact in artifacts.artifacts.items()
+    }
 
 
 def save_evaluation(
@@ -42,6 +64,7 @@ def save_evaluation(
     *,
     question_id: uuid.UUID | None = None,
     round_type: str = "",
+    artifacts: ArtifactSet | None = None,
 ) -> Evaluation:
     """Write the evaluation and queue its consequences, in one transaction."""
     row = Evaluation(
@@ -58,6 +81,7 @@ def save_evaluation(
         status=str(evaluation.status),
         scaffold_used=evaluation.scaffold_used,
         payload=evaluation.model_dump(mode="json"),
+        artifacts=frozen_artifacts(artifacts),
         evaluated_at=evaluation.evaluated_at or utcnow(),
     )
     session.add(row)

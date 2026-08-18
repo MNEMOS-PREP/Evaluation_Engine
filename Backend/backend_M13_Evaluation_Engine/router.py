@@ -15,6 +15,7 @@ import logging
 import uuid
 
 from ai_core.db import get_session
+from ai_core.evidence import sha256_hex
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -29,7 +30,7 @@ from .dependencies import deps
 from .ensemble import CONFIGS, N1_PRACTICE
 from .models import Calibration, HumanRating
 from .rubrics import get_rubric as _get_rubric
-from .service import TurnInput, evaluate_turn, outbound
+from .service import TurnInput, evaluate_turn, freeze_artifacts, outbound
 
 log = logging.getLogger(__name__)
 
@@ -128,6 +129,37 @@ def get_rubric(round_type: str) -> Rubric:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/ensembles")
+def list_ensembles() -> dict:
+    """The named ensembles a caller may ask for.
+
+    Published because the name is part of the calibration key (§6.7) — a
+    caller choosing one is choosing which fitted mapping their scores will be
+    read against, and a client that hardcodes the list drifts the moment a
+    config is renamed. `POST /v1/evaluations` 422s on an unknown name; this is
+    how you avoid finding that out at runtime.
+    """
+    return {
+        "default": N1_PRACTICE.name,
+        "ensembles": [
+            {
+                "name": config.name,
+                "size": config.size,
+                "members": [
+                    {"model": member.model, "dimension_order_seed": member.seed}
+                    for member in config.members
+                ],
+                # False for every shipped config, by construction: `run()`
+                # refuses to execute one that would report determinism as
+                # agreement (FR-13.26).
+                "homogeneous_without_decorrelation": config.homogeneous_without_decorrelation(),
+                "agreement_signal": config.size > 1,
+            }
+            for config in sorted(CONFIGS.values(), key=lambda c: c.size)
+        ],
+    }
+
+
 @router.get("/fixtures")
 def list_fixtures() -> dict:
     """The bank M13 runs against when M5 is absent, and the regression cases."""
@@ -186,6 +218,9 @@ def create_evaluation(
         consent_id=request.consent_id,
         round_type=request.round_type,
     )
+    # Frozen HERE rather than inside `evaluate_turn`, so the bytes the spans
+    # index into are the exact bytes stored beside the evaluation.
+    frozen = freeze_artifacts(turn)
     try:
         rubric = _get_rubric(turn.round_type or package.round_type)
         evaluation = evaluate_turn(
@@ -193,6 +228,7 @@ def create_evaluation(
             question=package,
             config=config,
             lookup=store.calibration_lookup(session),
+            artifacts=frozen,
         )
     except rubrics.RubricError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -203,6 +239,7 @@ def create_evaluation(
         outbound(evaluation, rubric, package),
         question_id=package.question_id,
         round_type=rubric.round_type,
+        artifacts=frozen,
     )
     if request.supersedes is not None:
         store.supersede(session, request.supersedes, evaluation.id)
@@ -217,6 +254,34 @@ def read_evaluation(turn_id: uuid.UUID, session: Session = Depends(get_session))
     return TurnEvaluation.model_validate(row.payload)
 
 
+def _artifacts_for_drawer(row: store.Evaluation, evaluation: TurnEvaluation) -> list[dict]:
+    """The frozen text a span resolves against, with its integrity re-checked.
+
+    `intact` is recomputed from the stored bytes rather than trusted, and the
+    drawer must not highlight when it is false. An offset into text that is no
+    longer the text we scored would underline the wrong words and caption them
+    "what you said" — which is the one failure this module cannot have.
+    """
+    out = []
+    for artifact_id, stored in (row.artifacts or {}).items():
+        text = stored.get("text", "")
+        expected = evaluation.artifact_checksums.get(artifact_id)
+        out.append(
+            {
+                "artifact_id": artifact_id,
+                "artifact_type": stored.get("artifact_type", "transcript"),
+                "text": text,
+                "checksum": stored.get("checksum"),
+                "intact": bool(expected) and sha256_hex(text) == expected,
+                # Ranges the evaluator was shown a block in place of (EC-13.3).
+                # Surfaced so the drawer can say WHICH passage was disregarded
+                # instead of leaving a student to wonder why it earned nothing.
+                "neutralised": [list(r) for r in stored.get("neutralised", [])],
+            }
+        )
+    return out
+
+
 @router.get("/evaluations/{turn_id}/evidence")
 def read_evidence(turn_id: uuid.UUID, session: Session = Depends(get_session)) -> dict:
     """Verified spans with playback offsets — what the evidence drawer renders."""
@@ -226,7 +291,15 @@ def read_evidence(turn_id: uuid.UUID, session: Session = Depends(get_session)) -
     evaluation = TurnEvaluation.model_validate(row.payload)
     return {
         "turn_id": str(turn_id),
+        # The rubric behind these scores. `TurnEvaluation` carries `rubric_id`
+        # and nothing that resolves it, so without this a reader holding an
+        # evaluation cannot fetch the dimension names or the anchors — and a
+        # drawer that shows `communication: 3` with no way to say what level 3
+        # means is back to the unanchored prose §3.1 Trap 1 is about.
+        "round_type": row.round_type,
+        "rubric_version": row.rubric_version,
         "artifact_checksums": evaluation.artifact_checksums,
+        "artifacts": _artifacts_for_drawer(row, evaluation),
         "dimensions": [
             {
                 "dimension_key": s.dimension_key,
@@ -339,12 +412,23 @@ def create_dispute(
 @router.get("/disputes/queue")
 def dispute_queue(session: Session = Depends(get_session)) -> dict:
     rows = list(store.open_disputes(session))
+    # A dispute names the evaluation it challenges — a specific reading of an
+    # answer, which a re-score supersedes. A reviewer needs the *answer*, so
+    # the turn is resolved here rather than leaving every caller to do the
+    # lookup and one of them to link at the wrong id.
+    turns = {
+        d.id: (
+            row.turn_id if (row := store.get_evaluation(session, d.evaluation_id)) else None
+        )
+        for d in rows
+    }
     return {
         "open": len(rows),
         "disputes": [
             {
                 "id": str(d.id),
                 "evaluation_id": str(d.evaluation_id),
+                "turn_id": str(turns[d.id]) if turns[d.id] else None,
                 "dimension_key": d.dimension_key,
                 "reason": d.reason,
                 "note": d.note,

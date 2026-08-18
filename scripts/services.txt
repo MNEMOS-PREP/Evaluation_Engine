@@ -17,11 +17,11 @@
 #
 #  Ports come from PORTS.txt: M13 is API 8113, web 5213.
 #
-#  There is no web row yet. M13's student-facing surfaces (the evidence
-#  drawer, the key-point checklist, the dispute dialog) arrive in milestone
-#  M10 - see plan_in_depth/M13_Evaluation_Engine.md §14. A tab that opens on
-#  an empty page is worse than one that is honestly absent.
+#  The web row `requires` node_modules rather than package.json, so a clone
+#  that has not been installed yet is reported MISSING with something to do
+#  about it instead of opening a tab on a crash.
 #==============================================================================
 
-# id      | label   | cwd     | requires                 | command                                                                                      | url                   | health
-m13-api   | M13 API | Backend | .venv\Scripts\python.exe | .venv\Scripts\python.exe -m uvicorn backend_M13_Evaluation_Engine.app:app --reload --port 8113 | http://127.0.0.1:8113 | /health
+# id      | label   | cwd      | requires                 | command                                                                                      | url                   | health
+m13-api   | M13 API | Backend  | .venv\Scripts\python.exe | .venv\Scripts\python.exe -m uvicorn backend_M13_Evaluation_Engine.app:app --reload --port 8113 | http://127.0.0.1:8113 | /health
+m13-web   | M13 Web | Frontend | node_modules             | npm run dev                                                                                  | http://localhost:5213 |

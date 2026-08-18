@@ -85,6 +85,17 @@ class Evaluation(SQLModel, table=True):
     status: str = Field(default="complete", index=True)
     scaffold_used: bool = False
     payload: dict = Field(default_factory=dict, sa_column=Column(SAJSON))
+    #: The frozen artifact set (§6.4 step 0) — `{artifact_id: {artifact_type,
+    #: text, neutralised}}`.
+    #:
+    #: The checksum alone is not enough. A span is a pair of offsets INTO this
+    #: text, so without the bytes the offsets resolve to nothing and the
+    #: evidence drawer — the surface the module's entire trust argument rests
+    #: on — cannot be rebuilt from a stored evaluation at all. Keeping only the
+    #: hash lets us prove a supplied text is the one we scored; it does not let
+    #: us show a student the words that earned their score, which is the
+    #: promise. Retention follows `consent_id` like the rest of the row.
+    artifacts: dict = Field(default_factory=dict, sa_column=Column(SAJSON))
     evaluated_at: datetime = Field(default_factory=utcnow, index=True)
     #: A re-score appends and points the old row here. Never an overwrite.
     superseded_by: uuid.UUID | None = Field(default=None, index=True)

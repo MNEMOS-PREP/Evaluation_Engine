@@ -19,13 +19,14 @@ But every module ALSO runs standalone on its own reserved port, for focused
 development and debugging:
 
     cd Backend   && .venv\Scripts\python -m uvicorn backend_M13_Evaluation_Engine.app:app --port 8113
+    cd Frontend  && npm run dev
 
-    or simply:   start_eval.bat           this module
+    or simply:   start_eval.bat           this module, API and web
                  start_all.bat            every module checked out next door
 
-  M13 has no frontend yet. Its student-facing surfaces — the evidence drawer,
-  the key-point checklist, the dispute dialog — arrive in milestone M10
-  (plan_in_depth/M13_Evaluation_Engine.md §14). Port 5213 stays reserved.
+  The web app proxies /v1 and /health to :8113, so the browser sees one origin
+  and there is no CORS to think about. Point it at the platform gateway
+  instead with VITE_API_BASE=http://127.0.0.1:8000.
 
 Both put every service in ONE Windows Terminal window, one tab each, with the
 control tab last. Ports live in scripts\services.txt - which reads them from

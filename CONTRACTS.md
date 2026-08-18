@@ -126,6 +126,23 @@ Both read `TurnEvaluation` directly.
 - **M16** — compare only within a compatible version window. `VersionStamp.comparable_to()` in `ai_core.versions` is the check: rubric, calibration and item bank sever comparability; prompt, model and `code_sha` do not.
 - **M17** — `key_point_coverage` (per key point, 0–1) plus `aggregated[].evidence` spans with character offsets. `t_ms` is derived from M11's word alignment at read time, so a re-alignment updates playback without invalidating a stored span.
 
+Both should read the drawer rather than the raw record when they need to
+*render* evidence:
+
+```
+GET /v1/evaluations/{turn_id}/evidence
+  → round_type, rubric_version          resolves the anchors; the record has only an opaque rubric_id
+    artifacts[]  {text, checksum, intact, neutralised[]}
+    dimensions[] {..., spans[] {quote, start, end, t_ms}}
+```
+
+`intact` is recomputed from the stored bytes at read time. **When it is false,
+do not highlight.** The offsets belong to text that is no longer there, and
+painting them anyway underlines words the candidate did not say and captions
+them as theirs. `neutralised` marks passages the evaluator was shown a block in
+place of — label them, never delete them, because deleting shifts every later
+offset.
+
 ---
 
 ## 5 · What M13 needs from you
@@ -164,6 +181,8 @@ GET /v1/evaluations/{turn_id}/outbound
 
 Returns exactly what that evaluation owes M04, M02 and M19 — real shapes, real
 ids, real evidence — so you can build against it before anything is connected.
+The web app renders the same response at `/turns/{turn_id}/outbound` on `:5213`
+if you would rather read it than curl it.
 
 ```
 GET  /v1/outbox          what is queued, and why anything failed

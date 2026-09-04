@@ -1,5 +1,10 @@
 # M13 — TODO · Evaluation Engine
 
+
+> **Completion: 95%** — 19 of 21 functional requirements met, 2 partially. Every requirement has shipped code. Two are incomplete rather than absent: the human-rating queue has no test, and the M02 ledger write is **built but never sent** — `emit.py` assembles the payload and the module contains no HTTP client to deliver it, so the outbox has rows and no transport. FR-13.21 degrades rather than blocks, because M12 is `required: false`.
+>
+> _Method: `(met + ½ × partial) ÷ total`, audited against shipped code, 2026-08-28. One measure applied the same way to all nineteen modules so they compare; it counts requirements, not screens or gates._
+
 Running list for **M13 Evaluation Engine**.
 Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 

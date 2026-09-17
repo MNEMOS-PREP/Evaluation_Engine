@@ -25,7 +25,7 @@ Milestones **M0–M5 and M9** of the [§14 build order](plan_in_depth/M13_Evalua
 
 | Milestone | What landed |
 |---|---|
-| **M0 — Contracts & the seam** | `ai_core` evidence and version types consumed, not redefined · `concept_bearing` · typed `AppliesWhen` · published hint-penalty table · `/health` + `/v1/deps` + `module.json` · fixture adapters for M5 and M12 |
+| **M0 — Contracts & the seam** | `ai_core` evidence and version types consumed, not redefined · `concept_bearing` · typed `AppliesWhen` · published hint-penalty table · `/health` + `/v1/deps` + `module.json` · **live M5 question packages**, with the fixture bank behind them; M12 fixture-backed (Phase 3) |
 | **M1 — Rubrics** | Typed schema, YAML loader, `dsa_verbal` with behavioural anchors at every level, disqualifiers as flags |
 | **M2 — Blind projection** | `EvaluatorView` and `PairwiseView`, both with the architectural leak test — **AC-13.2** |
 | **M3 — One evaluator** | Enum-constrained structured output · span verification, repair and reject/retry · artifact snapshot + checksum · injection neutralisation — **AC-13.16** |
@@ -73,7 +73,7 @@ Backend/backend_M13_Evaluation_Engine/
   emit.py         §5  — what M04, M02 and M19 receive. Start here to wire a sibling.
   calibration.py  §6.7 — isotonic, QWK, α, ECE, and the display gate
   store.py        §6.11 — persistence, outbox, supersede-and-retract
-  adapters.py     §6.11 — the M5/M12 seam, fixture-backed
+  adapters.py     §6.11 — the M5/M12 seam: M5 live, fixtures behind it
   llm.py          §11 — provider, tiers, cost, cache-minimum guard
   fixtures/       the M5 stand-in AND the regression suite seed
 

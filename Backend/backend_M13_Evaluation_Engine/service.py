@@ -157,7 +157,7 @@ def evaluate_turn(
     persisted. Freezing twice would mint fresh ids for the code and canvas
     artifacts, and every span pointing at them would resolve to nothing.
     """
-    package = question or get_questions().get(turn.question_id)
+    package = question or get_questions().get(turn.question_id, turn.round_type)
     if package is None:
         raise LookupError(f"no question package for {turn.question_id}")
 

@@ -147,10 +147,26 @@ offset.
 
 ## 5 · What M13 needs from you
 
-Both enter through an adapter with a fixture implementation, so M13 runs
-standalone today and swapping in the real module is a config change.
+Both enter through an adapter. M12 is still fixture-backed (it is Phase 3).
+**M05 is wired**: `LiveQuestions` calls it when `module.json` names a base URL,
+with the committed fixture bank behind it, so M13 still clones and runs alone.
 
 ### M05 — Question Intelligence
+
+```
+GET {M05}/v1/questions/{question_id}/package?round_type=<as administered>
+```
+
+`round_type` is a required query parameter and M13 sends the one the turn was
+asked under — `EvaluateRequest.round_type`, or the stored row's when a
+re-score resolves the package again. An item eligible in two round types has
+two packages, and which was administered is a fact about the turn.
+
+Until this landed, `get_questions()` was always the fixture bank, so **every
+real M05 question id answered 404** and nothing from the live bank could be
+scored by anyone. If M05 is down, or the item is not eligible in that round
+type, the lookup falls through to the fixtures and `/v1/deps` says what that
+narrows — it never fails the evaluation.
 
 ```python
 QuestionPackage(question_id, stem, reference_answer,

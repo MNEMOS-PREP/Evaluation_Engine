@@ -25,12 +25,28 @@ from ai_core.schema_repair import ensure_schema
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import adapters, rubrics
 from . import models as _models  # noqa: F401 - registers tables
-from . import rubrics
+from .dependencies import deps
 from .keys import load_keys
 from .router import router
 
 log = logging.getLogger("uvicorn.error")
+
+
+def _question_source() -> str:
+    """M05 if `module.json` (or `M05_BASE_URL`) names one, fixtures otherwise.
+
+    Wired at startup rather than per request so the choice is logged once and
+    visible in one place. `LiveQuestions` keeps the fixture bank behind it, so
+    this is additive: fixture ids and `question_label` resolve either way, and
+    M05 being down narrows what can be scored rather than breaking it.
+    """
+    dep = deps().get("M05")
+    if dep is None or not dep.base_url:
+        return "fixtures (no M05 base_url configured)"
+    adapters.set_questions(adapters.LiveQuestions(base_url=dep.base_url))
+    return f"M05 at {dep.base_url}, fixtures behind it"
 
 
 @asynccontextmanager
@@ -43,7 +59,11 @@ async def lifespan(_app: FastAPI):
     for change in ensure_schema(engine):
         log.info("schema: added missing column %s", change)
     loaded = rubrics.load_all()
-    log.info("M13 ready — rubrics: %s", ", ".join(sorted(loaded)) or "none")
+    log.info(
+        "M13 ready — rubrics: %s · questions: %s",
+        ", ".join(sorted(loaded)) or "none",
+        _question_source(),
+    )
     yield
 
 

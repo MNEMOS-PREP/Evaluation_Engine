@@ -193,7 +193,7 @@ def create_evaluation(
     if request.question_label is not None and hasattr(source, "by_label"):
         package = source.by_label(request.question_label)
     elif request.question_id is not None:
-        package = source.get(request.question_id)
+        package = source.get(request.question_id, request.round_type)
     if package is None:
         raise HTTPException(
             status_code=404,
@@ -339,7 +339,11 @@ def read_outbound(turn_id: uuid.UUID, session: Session = Depends(get_session)) -
     if row is None:
         raise HTTPException(status_code=404, detail="no evaluation for that turn")
     evaluation = TurnEvaluation.model_validate(row.payload)
-    package = get_questions().get(row.question_id) if row.question_id else None
+    package = (
+        get_questions().get(row.question_id, row.round_type)
+        if row.question_id
+        else None
+    )
     if package is None:
         raise HTTPException(status_code=409, detail="question package is no longer resolvable")
     payload = outbound(evaluation, _get_rubric(row.round_type), package)

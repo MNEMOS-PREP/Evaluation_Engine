@@ -22,6 +22,9 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -34,6 +37,13 @@ from .projection import KeyPoint
 log = logging.getLogger(__name__)
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
+
+#: Identifies this module to M05. Deliberately local rather than
+#: `ai_core.models.USER_AGENT`: that landed in Platform_Core v0.8.0 and this
+#: module is pinned to v0.6.0, and the header only matters for the provider
+#: behind Cloudflare -- M05 is our own service on the same machine. Bumping the
+#: pin is the identity rollout's job, not this seam's.
+USER_AGENT = "AI-Interviewer-M13/1.0 (+https://github.com/MNEMOS-PREP)"
 
 #: Stable ids for fixture questions, so a case has the same id everywhere.
 FIXTURE_NAMESPACE = UUID("6f9c0b1e-9d2a-5c7b-8e3f-1a2b3c4d5e6f")
@@ -98,7 +108,13 @@ class RegressionCase:
 
 
 class QuestionSource(Protocol):
-    def get(self, question_id: UUID) -> QuestionPackage | None: ...
+    #: `round_type` is how the item was ADMINISTERED, and M05 requires it to
+    #: build a package: an item eligible in two round types has two packages,
+    #: and which one was asked is a fact about the turn rather than about the
+    #: item (M05's own docstring on `/questions/{id}/package`). Every caller in
+    #: this module knows it — the turn, the request, or the stored row — so it
+    #: travels with the lookup.
+    def get(self, question_id: UUID, round_type: str | None = None) -> QuestionPackage | None: ...
     def all(self) -> list[QuestionPackage]: ...
 
 
@@ -149,7 +165,9 @@ def _load_fixtures() -> tuple[dict[UUID, QuestionPackage], list[RegressionCase]]
 class FixtureQuestions:
     name: str = "fixtures"
 
-    def get(self, question_id: UUID) -> QuestionPackage | None:
+    def get(  # noqa: ARG002 - the fixture bank has one package per id
+        self, question_id: UUID, round_type: str | None = None
+    ) -> QuestionPackage | None:
         return _load_fixtures()[0].get(question_id)
 
     def by_label(self, label: str) -> QuestionPackage | None:
@@ -162,6 +180,129 @@ class FixtureQuestions:
 def regression_cases() -> list[RegressionCase]:
     """The frozen suite (§6.10). Also the adversarial cases from §12."""
     return list(_load_fixtures()[1])
+
+
+# -------------------------------------------------------------------------
+#  M05, live
+# -------------------------------------------------------------------------
+
+
+@dataclass
+class LiveQuestions:
+    """M05 over HTTP, with the fixture bank behind it.
+
+    Until this existed `get_questions()` was ALWAYS the fixture bank, so
+    `POST /v1/evaluations` answered 404 for every real M05 question id and
+    nothing from the live bank could be scored by anybody. That is the Phase-1
+    exit gate rather than a convenience: M06 selects a real item, and the turn
+    it hands over has to be scoreable.
+
+    **M05 builds the package, not this file.** It already serves
+    `GET /v1/questions/{id}/package?round_type=` for exactly this, including
+    the `item` parameters that decide whether the resulting observation may
+    move an ability estimate. Rebuilding that from `/questions/{id}` here would
+    put a second implementation of theta-eligibility in the module that must
+    not own it.
+
+    **The fixture bank stays behind it.** The regression suite, the adversarial
+    cases and `question_label` all address fixture ids, and an M05 that is up
+    must not make them unresolvable. So a miss falls through rather than
+    failing -- which is also Rule 2: M05 down narrows what can be scored to the
+    committed bank, and `/v1/deps` already says so in a sentence.
+    """
+
+    base_url: str
+    fallback: QuestionSource = field(default_factory=FixtureQuestions)
+    timeout_s: float = 3.0
+    name: str = "m05"
+
+    def get(self, question_id: UUID, round_type: str | None = None) -> QuestionPackage | None:
+        package = self._fetch(question_id, round_type)
+        if package is not None:
+            return package
+        return self.fallback.get(question_id, round_type)
+
+    def by_label(self, label: str) -> QuestionPackage | None:
+        """Fixture-only: labels are this repo's names for its own cases."""
+        by_label = getattr(self.fallback, "by_label", None)
+        return by_label(label) if by_label else None
+
+    def all(self) -> list[QuestionPackage]:
+        """The committed bank. M05 has no "every item" route, and a scoring
+        engine has no business enumerating somebody else's bank."""
+        return self.fallback.all()
+
+    def _fetch(self, question_id: UUID, round_type: str | None) -> QuestionPackage | None:
+        if round_type is None:
+            # The item knows which round type it is scored under; ask it, then
+            # ask for that package. Two calls, and only when the caller could
+            # not say -- every caller in this module can.
+            item = self._json(f"/v1/questions/{question_id}")
+            if item is None:
+                return None
+            round_type = item.get("rubric_round_type") or (item.get("round_types") or [None])[0]
+            if round_type is None:
+                return None
+        query = urllib.parse.urlencode({"round_type": round_type})
+        raw = self._json(f"/v1/questions/{question_id}/package?{query}")
+        return self._package(raw) if raw else None
+
+    def _json(self, path: str) -> dict | None:
+        request = urllib.request.Request(
+            f"{self.base_url.rstrip('/')}{path}",
+            headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+                return json.loads(response.read())
+        except urllib.error.HTTPError as exc:
+            # 404 (not M05's item) and 422 (not eligible in this round type)
+            # are answers, not outages: fall through to the fixture bank.
+            if exc.code not in (404, 422):
+                log.info("M13: M05 %s -> HTTP %s", path, exc.code)
+            return None
+        except Exception as exc:  # noqa: BLE001 - an upstream that fails degrades
+            log.info("M13: M05 %s unreachable (%s)", path, type(exc).__name__)
+            return None
+
+    @staticmethod
+    def _package(raw: dict) -> QuestionPackage | None:
+        try:
+            item = raw.get("item")
+            return QuestionPackage(
+                question_id=UUID(str(raw["question_id"])),
+                stem=raw["stem"],
+                reference_answer=raw.get("reference_answer", ""),
+                key_points=[
+                    KeyPoint(
+                        id=str(kp["id"]),
+                        statement=kp["statement"],
+                        weight=float(kp.get("weight", 1.0)),
+                        required=bool(kp.get("required", False)),
+                    )
+                    for kp in raw.get("key_points", [])
+                ],
+                round_type=raw["round_type"],
+                concepts={str(k): float(v) for k, v in (raw.get("concepts") or {}).items()},
+                # Present only for a theta-eligible item: M05 sends None
+                # otherwise, and `theta_eligible` is derived from exactly that.
+                item=(
+                    ItemParams(
+                        question_id=UUID(str(item.get("question_id", raw["question_id"]))),
+                        irt_model=str(item.get("irt_model", "grm")),
+                        a=float(item.get("a", 1.0)),
+                        b=item.get("b", 0.0),
+                        params_source=str(item.get("params_source", "prior")),
+                        bank_version=str(item.get("bank_version", "m05")),
+                    )
+                    if isinstance(item, dict)
+                    else None
+                ),
+                label=str(raw.get("label", "")),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            log.warning("M13: M05 package was unusable (%s)", exc)
+            return None
 
 
 @dataclass
@@ -202,6 +343,7 @@ def reload() -> None:
 
 __all__ = [
     "FixtureQuestions",
+    "LiveQuestions",
     "ItemParams",
     "NoDelivery",
     "QuestionPackage",

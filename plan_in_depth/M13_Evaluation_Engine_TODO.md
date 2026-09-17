@@ -18,6 +18,26 @@ Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 
 Legend: ✅ done · 🟡 partly done · ⬜ not started
 
+### 2026-09-17 — the M05 seam is wired
+
+Found while building M06: `adapters.get_questions()` was **always**
+`FixtureQuestions`, and there was no HTTP implementation of `QuestionSource`
+anywhere — so `POST /v1/evaluations` answered **404 for every real M05
+question id**, and no question from the live bank could be scored by anybody.
+That is the Phase-1 exit gate, not a convenience.
+
+`LiveQuestions` now calls `GET {M05}/v1/questions/{id}/package?round_type=`
+(the route M05 already built for this), wired at startup from `module.json`,
+with the fixture bank behind it so the regression suite and `question_label`
+still resolve and a fresh clone still runs alone. `QuestionSource.get()` takes
+the administered `round_type`, because M05 requires it and every caller here
+knows it.
+
+**Still open, and the same class of gap:** the M04 observation emit has no
+HTTP client either — `emit.py` assembles the payload and nothing delivers it,
+so the outbox has rows and no transport. M06 will start filling that outbox
+with real turns.
+
 ---
 
 ## 0. Ideas and scouting

@@ -126,6 +126,7 @@ def observations_for(
     evaluation: TurnEvaluation,
     rubric: Rubric,
     package: QuestionPackage,
+    communication_concepts: frozenset[str] = frozenset(),
 ) -> list[Observation]:
     """One observation per (turn, concept), from the concept-bearing dimension.
 
@@ -134,6 +135,11 @@ def observations_for(
 
       * the ONE `concept_bearing` dimension  → the question's technical concepts
       * any `communication`-domain dimension → communication concepts only
+
+    Which ids those are is M04's answer, passed in (`adapters.ConceptDomains`)
+    rather than pattern-matched here. An empty set means M04 could not be
+    asked, and then no communication observation is written at all — a score
+    with nowhere true to go is not a belief about a student.
 
     A dimension that is neither produces nothing. That is deliberate: `depth`
     is a real score a student reads, and it is not a separate belief about a
@@ -154,7 +160,7 @@ def observations_for(
         technical = {
             cid: w
             for cid, w in package.concepts.items()
-            if not cid.startswith("concept:communication")
+            if cid not in communication_concepts
         }
         out.extend(
             _build(evaluation, package, bearing, cid, weight, bearing_key)
@@ -168,10 +174,15 @@ def observations_for(
         if score is None:
             continue
         comms = {
-            cid: w
-            for cid, w in package.concepts.items()
-            if cid.startswith("concept:communication")
-        } or {"concept:communication": 1.0}
+            cid: w for cid, w in package.concepts.items() if cid in communication_concepts
+        }
+        if not comms:
+            # Nothing true to attach this to. The old fallback minted
+            # `concept:communication`, which exists in no ontology: M04
+            # rejected the whole batch as "unknown concept" and took the
+            # turn's technical observation down with it, so a fully scored
+            # interview moved nothing at all.
+            continue
         out.extend(
             _build(evaluation, package, score, cid, weight, dimension.key)
             for cid, weight in sorted(comms.items())

@@ -34,6 +34,22 @@ from .router import router
 log = logging.getLogger("uvicorn.error")
 
 
+def _concept_domains() -> str:
+    """M04's ontology, for the one question `emit.py` cannot answer itself:
+    which concepts are communication rather than technical (AC-13.18).
+
+    Without it no communication observation is written — which is the honest
+    outcome, and better than the mint-an-id fallback it replaced, which had
+    M04 reject every batch as "unknown concept" and take the turn's technical
+    observation with it.
+    """
+    dep = deps().get("M04")
+    if dep is None or not dep.base_url:
+        return "none (no M04 base_url configured — no communication observations)"
+    adapters.set_concept_domains(adapters.ConceptDomains(base_url=dep.base_url))
+    return f"M04 at {dep.base_url}"
+
+
 def _question_source() -> str:
     """M05 if `module.json` (or `M05_BASE_URL`) names one, fixtures otherwise.
 
@@ -60,9 +76,10 @@ async def lifespan(_app: FastAPI):
         log.info("schema: added missing column %s", change)
     loaded = rubrics.load_all()
     log.info(
-        "M13 ready — rubrics: %s · questions: %s",
+        "M13 ready — rubrics: %s · questions: %s · ontology: %s",
         ", ".join(sorted(loaded)) or "none",
         _question_source(),
+        _concept_domains(),
     )
     yield
 

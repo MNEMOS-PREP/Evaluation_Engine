@@ -9,6 +9,7 @@ shows up in this repo rather than in theirs.
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 
 import pytest
 
@@ -20,6 +21,18 @@ from backend_M13_Evaluation_Engine.service import TurnInput, evaluate_turn, outb
 from .conftest import StubLLM
 
 CONSENT = uuid.uuid4()
+
+
+#: M04's communication domain, as `GET /v1/concepts` answers it. In
+#: production these come from M04 (`adapters.ConceptDomains`) rather than
+#: from a list — see `test_communication_concepts_are_m04s_to_name`.
+COMMS = frozenset({"concept:thinking_aloud", "concept:summarising_concisely"})
+
+
+def also_naming(package, *concept_ids):
+    """The same package, plus these concepts. A COPY: the question fixtures
+    are shared, and a test that mutates one changes the next one's bank."""
+    return replace(package, concepts={**package.concepts, **{c: 1.0 for c in concept_ids}})
 
 
 @pytest.fixture(name="scored")
@@ -70,15 +83,56 @@ def test_observation_id_is_stable_and_keyed_as_m04_keys_it():
 def test_only_the_concept_bearing_dimension_reaches_technical_concepts(scored):
     """AC-13.18 — the rule that stops communication becoming DSA mastery."""
     evaluation, rubric, package = scored
-    observations = emit.observations_for(evaluation, rubric, package)
+    package = also_naming(package, *COMMS)
+    observations = emit.observations_for(evaluation, rubric, package, communication_concepts=COMMS)
     assert observations
+    # Both sides of the rule are exercised, or the gate proves nothing.
+    assert {o.concept_id for o in observations} & COMMS
 
     for obs in observations:
-        if obs.concept_id.startswith("concept:communication"):
+        if obs.concept_id in COMMS:
             dimension = rubric.dimension(obs.source_dimension_key)
             assert dimension.concept_domain == "communication"
         else:
             assert obs.source_dimension_key == rubric.concept_bearing_key
+
+
+@pytest.mark.gate
+def test_a_communication_score_with_no_concept_writes_nothing(scored):
+    """Run live, this wrote `concept:communication` — an id in no ontology.
+
+    M04 rejected the whole batch as "unknown concept", which took the turn's
+    TECHNICAL observation down with it, so a fully scored interview moved
+    nothing at all. A score with nowhere true to go is not a belief.
+    """
+    evaluation, rubric, package = scored
+    assert not set(package.concepts) & COMMS  # the bank item names none
+
+    observations = emit.observations_for(evaluation, rubric, package, communication_concepts=COMMS)
+    assert observations, "the technical observation still goes"
+    assert all(o.source_dimension_key == rubric.concept_bearing_key for o in observations)
+    assert not any("communication" in o.concept_id for o in observations)
+
+
+def test_without_m04_no_communication_observation_is_invented(scored):
+    """Rule 2: a missing upstream narrows what is claimed.
+
+    With no ontology to ask, the communication DIMENSION writes nothing — no
+    minted id, no guess. The score itself is still on the evaluation a student
+    reads; it just does not become a belief about a concept.
+    """
+    evaluation, rubric, package = scored
+    package = also_naming(package, *COMMS)
+    observations = emit.observations_for(
+        evaluation, rubric, package, communication_concepts=frozenset()
+    )
+    assert observations
+    written_by = {o.source_dimension_key for o in observations}
+    assert written_by == {rubric.concept_bearing_key}
+    assert not any(
+        rubric.dimension(key).concept_domain == "communication" for key in written_by
+    )
+    assert any(s.dimension_key == "communication" for s in evaluation.aggregated)
 
 
 def test_depth_produces_no_observation_at_all(scored):

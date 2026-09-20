@@ -28,7 +28,12 @@ from ai_core.timeutil import utcnow
 from . import calibration as calib
 from . import coverage as coverage_module
 from . import emit as emit_module
-from .adapters import QuestionPackage, get_delivery, get_questions
+from .adapters import (
+    QuestionPackage,
+    get_concept_domains,
+    get_delivery,
+    get_questions,
+)
 from .contracts import (
     Agreement,
     DimensionScore,
@@ -260,7 +265,12 @@ def outbound(
         "observations_skipped": None,
     }
     try:
-        payload["observations"] = emit_module.observations_for(evaluation, rubric, package)
+        payload["observations"] = emit_module.observations_for(
+            evaluation,
+            rubric,
+            package,
+            communication_concepts=get_concept_domains().communication(),
+        )
     except emit_module.NoConsent as exc:
         payload["observations_skipped"] = str(exc)
         log.warning("no observations emitted for turn %s: %s", evaluation.turn_id, exc)

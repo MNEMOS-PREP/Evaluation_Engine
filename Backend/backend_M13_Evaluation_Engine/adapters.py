@@ -183,6 +183,74 @@ def regression_cases() -> list[RegressionCase]:
 
 
 # -------------------------------------------------------------------------
+#  M04's ontology: which concepts are communication
+# -------------------------------------------------------------------------
+
+
+@dataclass
+class ConceptDomains:
+    """Which concepts belong to M04's `communication` domain, asked of M04.
+
+    `emit.py` has to separate communication concepts from technical ones —
+    that separation is AC-13.18, the rule that stops "spoke well" becoming
+    "knows hashing". It used to test `cid.startswith("concept:communication")`,
+    which matched none of M04's real ids (`concept:thinking_aloud`,
+    `concept:summarising_concisely`, ...) and so fell through to a minted
+    `concept:communication` that exists in no ontology. M04 rejected the batch
+    as "unknown concept" and the turn's technical observation went down with
+    it, so a fully scored interview moved nothing at all.
+
+    A copied list here would be wrong the first time M04 adds a concept. M04
+    owns the ontology and publishes it on a public route, so this asks, once,
+    and caches until the ontology version changes.
+
+    **When M04 cannot be reached, this is empty and no communication
+    observation is written.** That is Rule 2: a missing upstream narrows what
+    is claimed. It never invents an id to hang a score on.
+    """
+
+    base_url: str
+    timeout_s: float = 3.0
+    _cache: dict[str, frozenset[str]] = field(default_factory=dict)
+
+    def communication(self) -> frozenset[str]:
+        cached = self._cache.get("communication")
+        if cached is not None:
+            return cached
+        rows = self._fetch()
+        if rows is None:
+            return frozenset()
+        found = frozenset(
+            str(row["id"]) for row in rows if row.get("domain") == "communication"
+        )
+        self._cache["communication"] = found
+        log.info("M13: %d communication concepts from M04", len(found))
+        return found
+
+    def _fetch(self) -> list[dict] | None:
+        request = urllib.request.Request(
+            f"{self.base_url.rstrip('/')}/v1/concepts",
+            headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+                body = json.loads(response.read())
+        except Exception as exc:  # noqa: BLE001 - an upstream that fails degrades
+            log.info("M13: M04 ontology unreachable (%s)", type(exc).__name__)
+            return None
+        return body if isinstance(body, list) else body.get("concepts") or []
+
+
+class NoConceptDomains:
+    """No M04 configured. Communication scores are recorded on the evaluation
+    and no observation is emitted for them — which is what M06's report says
+    too when consent or an upstream is missing."""
+
+    def communication(self) -> frozenset[str]:
+        return frozenset()
+
+
+# -------------------------------------------------------------------------
 #  M05, live
 # -------------------------------------------------------------------------
 
@@ -326,6 +394,18 @@ def get_questions() -> QuestionSource:
 def set_questions(source: QuestionSource | None) -> None:
     global _questions
     _questions = source or FixtureQuestions()
+
+
+_concept_domains: object = NoConceptDomains()
+
+
+def get_concept_domains():
+    return _concept_domains
+
+
+def set_concept_domains(source) -> None:
+    global _concept_domains
+    _concept_domains = source or NoConceptDomains()
 
 
 def get_delivery() -> DeliverySource:

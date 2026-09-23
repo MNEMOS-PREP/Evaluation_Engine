@@ -59,15 +59,38 @@ function Get-UrlHost {
 function Test-Port {
     param([string] $Address, [int] $Port, [int] $TimeoutMs = 400)
     if (-not $Port) { return $false }
-    $client = New-Object System.Net.Sockets.TcpClient
-    try {
-        $async = $client.BeginConnect($Address, $Port, $null, $null)
-        if (-not $async.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) { return $false }
-        $client.EndConnect($async)
-        return $true
-    }
+
+    <#
+        Every resolved address, each with a socket of ITS family.
+
+        `New-Object System.Net.Sockets.TcpClient` with no argument is IPv4-only.
+        Vite binds `localhost` to ::1 and nothing else, while uvicorn binds
+        127.0.0.1 - so an IPv4 socket asking for "localhost:5215" resolves to
+        ::1 first and dies with "None of the discovered or specified addresses
+        match the socket address family", or simply times out.
+
+        The effect was that every API tab went ready in under a second and
+        every WEB tab waited for ever on a dev server that was already serving
+        200s. It looked like the launcher had hung; the site was up the whole
+        time. API rows were unaffected only because they declare a health path
+        and take the HTTP branch above, which is dual-stack.
+    #>
+    try { $addresses = [System.Net.Dns]::GetHostAddresses($Address) }
     catch { return $false }
-    finally { $client.Close() }
+
+    foreach ($ip in $addresses) {
+        $client = New-Object System.Net.Sockets.TcpClient($ip.AddressFamily)
+        try {
+            $async = $client.BeginConnect($ip, $Port, $null, $null)
+            if ($async.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) {
+                $client.EndConnect($async)
+                return $true
+            }
+        }
+        catch { }
+        finally { $client.Close() }
+    }
+    return $false
 }
 
 function Test-Ready {

@@ -11,7 +11,7 @@
   },
   "core": {
     "repo": "https://github.com/MNEMOS-PREP/Platform_Core",
-    "version": "v0.6.0"
+    "version": "v0.10.0"
   },
 
   "_comment_depends_on": [
@@ -50,6 +50,16 @@
       "reason": "receives one observation per (turn, concept) from the concept-bearing dimension, and owns the re-test queue a dispute writes to",
       "on_missing": "Observations queue to an outbox and replay with the same content-hashed id, so a replay cannot double-count. The evaluation, its evidence and the report are unaffected.",
       "base_url": "http://127.0.0.1:8104",
+      "health_path": "/health",
+      "required": false
+    },
+    {
+      "module": "M02",
+      "name": "JD Parser & Coverage Planner",
+      "repo": "https://github.com/MNEMOS-PREP/jd-parser-coverage",
+      "reason": "receives the `scored` transition for each turn, which is what lets the coverage ledger say a requirement was measured rather than merely asked about",
+      "on_missing": "The score queues and is delivered when M02 is back. The evaluation is unaffected; the job-description coverage view shows the question as asked, not yet scored.",
+      "base_url": "http://127.0.0.1:8102",
       "health_path": "/health",
       "required": false
     }

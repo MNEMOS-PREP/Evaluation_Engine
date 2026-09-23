@@ -54,7 +54,7 @@ def test_deps_names_what_breaks_without_each_upstream(client):
     body = client.get("/v1/deps").json()
     for dependency in body["dependencies"]:
         assert dependency["on_missing"].strip(), f"{dependency['module_id']} has no on_missing"
-    assert {d["module_id"] for d in body["dependencies"]} == {"M05", "M12", "M04"}
+    assert {d["module_id"] for d in body["dependencies"]} == {"M05", "M12", "M04", "M02"}
 
 
 def test_evaluation_is_reported_unavailable_without_a_key(client):

@@ -25,7 +25,7 @@ from ai_core.schema_repair import ensure_schema
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import adapters, rubrics
+from . import adapters, delivery, rubrics
 from . import models as _models  # noqa: F401 - registers tables
 from .dependencies import deps
 from .keys import load_keys
@@ -81,7 +81,10 @@ async def lifespan(_app: FastAPI):
         _question_source(),
         _concept_domains(),
     )
-    yield
+    # The worker `emit.py` promised. Delivers every row this module owes on
+    # an interval and on every kick, off the event loop.
+    with delivery.sweeper().running():
+        yield
 
 
 app = FastAPI(title="M13 — Evaluation Engine", version="0.1.0", lifespan=lifespan)

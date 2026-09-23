@@ -5,10 +5,11 @@ get its consequences to the modules that need them without ever letting one of
 those modules' outages become a student's problem.
 
 **The outbox is the whole point of this file.** An evaluation and its outbound
-rows are written in one transaction; a worker drains them afterwards. So M04
-being down delays a mastery update and does not fail an evaluation — and
-because the row carries M04's own content-hashed id, a replay is an insert
-conflict there rather than a second answer.
+rows are written in one transaction; a worker drains them afterwards
+(`delivery.py`, on `ai_core.outbox`). So M04 being down delays a mastery update
+and does not fail an evaluation — and because the row carries M04's own
+content-hashed id, a replay is an insert conflict there rather than a second
+answer.
 
 **A re-score appends.** `supersede()` points the old row at the new one and
 retracts the observation that came from it, because M04 recomputes from
@@ -22,18 +23,29 @@ import logging
 import uuid
 from collections.abc import Iterator
 
+from ai_core import outbox as core_outbox
 from ai_core.timeutil import utcnow
 from sqlmodel import Session, select
 
+from . import delivery
 from . import emit as emit_module
 from .contracts import TurnEvaluation
 from .evidence import ArtifactSet
-from .models import Calibration, Dispute, DisputeState, Evaluation, ObservationOutbox, OutboxState
+from .models import (
+    Calibration,
+    CoverageOutbox,
+    Dispute,
+    DisputeState,
+    Evaluation,
+    ObservationOutbox,
+    OutboxState,
+)
 
 log = logging.getLogger(__name__)
 
-#: Give up re-sending after this many attempts and leave the row visible.
-MAX_OUTBOX_ATTEMPTS = 5
+#: Answered failures before a row is held for a person. The policy's, named
+#: here because callers have always read it from this module.
+MAX_OUTBOX_ATTEMPTS = core_outbox.RetryPolicy().max_failures
 
 
 def frozen_artifacts(artifacts: ArtifactSet | None) -> dict:
@@ -98,6 +110,26 @@ def save_evaluation(
             )
         )
 
+    coverage = outbound.get("coverage")
+    if (
+        isinstance(coverage, dict)
+        and coverage.get("score") is not None
+        and emit_module.coverage_url(
+            evaluation.session_id, evaluation.candidate_id, evaluation.turn_id
+        )
+    ):
+        # Only when an M02 is configured: a queue for a module this deployment
+        # does not run is a queue that is owed for ever.
+        session.add(
+            CoverageOutbox(
+                evaluation_id=evaluation.id,
+                turn_id=evaluation.turn_id,
+                session_id=evaluation.session_id,
+                candidate_id=evaluation.candidate_id,
+                payload=coverage,
+            )
+        )
+
     session.commit()
     session.refresh(row)
     return row
@@ -132,10 +164,14 @@ def supersede(session: Session, old_id: uuid.UUID, new_id: uuid.UUID) -> None:
     for row in session.exec(
         select(ObservationOutbox).where(ObservationOutbox.evaluation_id == old_id)
     ).all():
-        if row.state == OutboxState.pending:
-            # Never sent, so nothing to retract — just stop it going.
-            row.state = OutboxState.rejected
+        if row.state in (OutboxState.pending, OutboxState.sending):
+            # Never sent, so nothing to retract — just stop it going. `void`,
+            # not `rejected`: nothing is wrong, and a rejected row is listed as
+            # needing a person.
+            row.state = OutboxState.void
             row.last_error = "superseded before send"
+        elif row.state == OutboxState.void:
+            continue
         else:
             payload = dict(row.payload)
             payload["retracted"] = True
@@ -143,7 +179,20 @@ def supersede(session: Session, old_id: uuid.UUID, new_id: uuid.UUID) -> None:
             row.payload = payload
             row.state = OutboxState.pending
             row.attempts = 0
+            row.failures = 0
+            row.next_attempt_at = None
         session.add(row)
+
+    # The old score's coverage row: stop it if it has not gone. If it has, the
+    # new evaluation's row carries the new score, and M02's ledger keeps both —
+    # "scored 0.5, re-scored 0.75" is the sequence a dispute needs.
+    for row in session.exec(
+        select(CoverageOutbox).where(CoverageOutbox.evaluation_id == old_id)
+    ).all():
+        if row.state in (OutboxState.pending, OutboxState.sending):
+            row.state = OutboxState.void
+            row.last_error = "superseded before send"
+            session.add(row)
     session.commit()
 
 
@@ -153,54 +202,41 @@ def supersede(session: Session, old_id: uuid.UUID, new_id: uuid.UUID) -> None:
 
 
 def pending_observations(session: Session, limit: int = 100) -> list[ObservationOutbox]:
+    """Observations still owed to M04 — waiting, backing off, or in flight."""
     return list(
         session.exec(
             select(ObservationOutbox)
-            .where(
-                ObservationOutbox.state == OutboxState.pending,
-                ObservationOutbox.attempts < MAX_OUTBOX_ATTEMPTS,
-            )
+            .where(ObservationOutbox.state.in_(core_outbox.OPEN_STATES))  # type: ignore[union-attr]
             .order_by(ObservationOutbox.created_at)  # type: ignore[arg-type]
             .limit(limit)
         ).all()
     )
 
 
-def drain(session: Session, sender: Sender | None = None, limit: int = 100) -> dict[str, int]:
-    """Send what is pending. Safe to run repeatedly and safe to interrupt.
+def drain(
+    session: Session, sender: delivery.LegacySender | None = None, limit: int = 100
+) -> dict:
+    """Send what is due, now. Safe to run repeatedly and safe to interrupt.
 
-    Groups by candidate because M04's endpoint is per-candidate and takes a
-    LIST in one transaction — the 60ms budget in its §11 is per call, not per
-    observation.
+    What `POST /v1/outbox/drain` and the suite call. The sweeper does the same
+    thing on its own schedule; this is the same pass, on demand.
+
+    With a `sender`, only the M04 channel runs, through that sender — the
+    suite's fakes speak the old `(candidate_id, observations) -> (ok, detail)`
+    shape, and a test must never reach a real M02.
     """
-    rows = pending_observations(session, limit)
-    if not rows:
-        return {"sent": 0, "failed": 0, "pending": 0}
-
-    send = sender or http_sender
-    by_candidate: dict[uuid.UUID, list[ObservationOutbox]] = {}
-    for row in rows:
-        by_candidate.setdefault(row.candidate_id, []).append(row)
-
-    sent = failed = 0
-    for candidate_id, batch in by_candidate.items():
-        ok, detail = send(candidate_id, [dict(r.payload) for r in batch])
-        for row in batch:
-            row.attempts += 1
-            if ok:
-                row.state = OutboxState.sent
-                row.sent_at = utcnow()
-                row.last_error = None
-                sent += 1
-            else:
-                row.last_error = detail[:400]
-                # A 4xx will not become a 2xx on a retry; a 5xx might.
-                if detail.startswith("http_4") and not detail.startswith("http_429"):
-                    row.state = OutboxState.rejected
-                failed += 1
-            session.add(row)
-    session.commit()
-    return {"sent": sent, "failed": failed, "pending": len(pending_observations(session, limit))}
+    if sender is not None:
+        channels = [delivery.observation_channel(delivery.from_legacy(sender))]
+    else:
+        channels = delivery.channels()
+    reports = [core_outbox.deliver(session, channel, limit=limit) for channel in channels]
+    failed = sum(r.retried + r.held + r.rejected + r.deferred for r in reports)
+    return {
+        "sent": sum(r.moved for r in reports),
+        "failed": failed,
+        "pending": len(pending_observations(session, limit)),
+        "channels": [r.as_dict() for r in reports],
+    }
 
 
 class Sender:  # noqa: B903 - callable interface, kept simple for injection
@@ -211,28 +247,13 @@ class Sender:  # noqa: B903 - callable interface, kept simple for injection
 
 
 def http_sender(candidate_id: uuid.UUID, observations: list[dict]) -> tuple[bool, str]:
-    """POST to M04. Never raises — a transport failure is a retry, not a crash."""
-    import json  # noqa: PLC0415
-    import urllib.error  # noqa: PLC0415
-    import urllib.request  # noqa: PLC0415
-
-    body = json.dumps({"observations": observations}).encode("utf-8")
-    request = urllib.request.Request(
+    """POST to M04 in the legacy `(ok, detail)` shape. Never raises."""
+    outcome = core_outbox.post_json(
         emit_module.observations_url(candidate_id),
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "M13-EvaluationEngine/0.1",
-            **emit_module.service_headers(),
-        },
+        {"observations": observations},
+        headers=emit_module.service_headers(),
     )
-    try:
-        with urllib.request.urlopen(request, timeout=10) as response:
-            return 200 <= response.status < 300, f"http_{response.status}"
-    except urllib.error.HTTPError as exc:
-        return False, f"http_{exc.code}: {exc.read().decode('utf-8', 'replace')[:200]}"
-    except Exception as exc:  # noqa: BLE001 - an outage must not become ours
-        return False, f"{type(exc).__name__}: {exc}"
+    return outcome.ok, outcome.detail
 
 
 # ─────────────────────────────────────────────────────────────────────────

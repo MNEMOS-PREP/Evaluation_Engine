@@ -10,8 +10,15 @@ only meaningful if something in the suite tries to get past it.
 
 from __future__ import annotations
 
+import os
 import uuid
 from collections.abc import Iterator
+
+# Before anything imports `delivery`: the `client` fixture enters the app's
+# lifespan, and a running sweeper there would drain the developer's real
+# dev.db and open sockets to M04 and M02 on every kick. The worker is tested
+# directly (`test_delivery.py`), against this suite's own engine.
+os.environ["M13_OUTBOX_SWEEP_S"] = "0"
 
 import pytest
 from ai_core.db import get_session

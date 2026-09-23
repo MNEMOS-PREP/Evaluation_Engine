@@ -13,8 +13,11 @@ expensive thing to get wrong and the reason this file is mostly contract.
 
 **Nothing here blocks an evaluation.** Every send goes through the outbox: a
 row is written in the same transaction as the evaluation, and a worker drains
-it. A student's score must never depend on whether somebody else's service was
-up, and this file is where that promise is either kept or quietly broken.
+it — `delivery.py`, on `ai_core.outbox`. Until 2026-09-23 that sentence was a
+promise with nothing behind it: there was no worker, only `POST /outbox/drain`,
+and the platform's core loop closed only when somebody called it by hand. A
+student's score must never depend on whether somebody else's service was up,
+and this file is where that promise is either kept or quietly broken.
 
 **Idempotency is M04's formula, not ours.** `observation_id()` reproduces
 `uuid5(OBS_NAMESPACE, "{turn}|{concept}|{kind}|{rubric_version}")` exactly,
@@ -285,6 +288,11 @@ def coverage_update(evaluation: TurnEvaluation, rubric: Rubric) -> dict:
     rather than an intention". The score it takes is the concept-bearing one,
     for the same reason M04 does — a requirement is covered by whether the
     candidate could do the thing, not by how well they narrated it.
+
+    `score` is on 0..1. M02 keeps one ledger across every rubric a session
+    uses, and a bare category means nothing without the scale it came from —
+    a 3 is strong on a five-level rubric and middling on a seven. The category
+    and its scale travel beside it, so nothing is lost by normalising.
     """
     bearing = next(
         (s for s in evaluation.aggregated if s.dimension_key == rubric.concept_bearing_key),
@@ -293,8 +301,10 @@ def coverage_update(evaluation: TurnEvaluation, rubric: Rubric) -> dict:
     return {
         "turn_id": str(evaluation.turn_id),
         "session_id": str(evaluation.session_id),
+        "evaluation_id": str(evaluation.id),
         "state": "scored",
-        "score": None if bearing is None else float(bearing.raw_score),
+        "score": None if bearing is None else round(bearing.raw_score / (N_CATEGORIES - 1), 4),
+        "raw_category": None if bearing is None else bearing.raw_score,
         "n_categories": N_CATEGORIES,
         "rubric_version": evaluation.versions.rubric_version,
         "scored_at": (evaluation.evaluated_at or utcnow()).isoformat(),
@@ -325,17 +335,46 @@ def retest_url(candidate_id: uuid.UUID, concept_id: str) -> str:
     return f"{m04_base_url()}/v1/candidates/{candidate_id}/mastery/{concept_id}/dispute"
 
 
+#: The name M04 reads (its `keys.SERVICE_SECRET_VAR`) and M15 sends. M13 read a
+#: bare `SERVICE_SECRET`, so with the platform's documented variable set, every
+#: observation still went out unauthenticated. The old name is still read, so a
+#: keys.txt written against it keeps working.
+SERVICE_SECRET_VARS = ("M04_SERVICE_SECRET", "SERVICE_SECRET")
+
+
 def service_headers() -> dict[str, str]:
-    secret = os.getenv("SERVICE_SECRET", "").strip()
-    return {SERVICE_SECRET_HEADER: secret} if secret else {}
+    for name in SERVICE_SECRET_VARS:
+        secret = os.getenv(name, "").strip()
+        if secret:
+            return {SERVICE_SECRET_HEADER: secret}
+    return {}
+
+
+def coverage_url(session_id: object, candidate_id: object, turn_id: object) -> str | None:
+    """M02's turn-scoped score route, or None when no M02 is configured.
+
+    None is not an error. M02 is optional to M13 like every upstream is, and a
+    session that never came from a job description has no ledger to move.
+    """
+    from .dependencies import deps  # noqa: PLC0415 - avoids an import cycle via router
+
+    dep = deps().get("M02")
+    if dep is None or not dep.base_url:
+        return None
+    return (
+        f"{dep.base_url.rstrip('/')}/v1/sessions/{session_id}/coverage/{candidate_id}"
+        f"/turns/{turn_id}/score"
+    )
 
 
 __all__ = [
     "OBS_NAMESPACE",
     "SERVICE_SECRET_HEADER",
+    "SERVICE_SECRET_VARS",
     "NoConsent",
     "Observation",
     "coverage_update",
+    "coverage_url",
     "ledger_entries",
     "m04_base_url",
     "observation_id",

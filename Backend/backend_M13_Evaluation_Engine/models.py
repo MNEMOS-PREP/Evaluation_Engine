@@ -14,6 +14,9 @@ Four tables and one queue:
                         evaluation never fails because a downstream module is
                         down (§6.11) — and so a replay cannot double-count,
                         because the id is a content hash M04 also derives.
+``m13_coverage_outbox`` the `scored` transition M02's coverage ledger is owed
+                        per turn (M02 §6.6). Both queues are drained by
+                        `delivery.py` on `ai_core.outbox`.
 ``m13_human_rating``    the calibration study's raw data, carrying all three
                         MFRM facets (§6.6).
 ``m13_calibration``     a fitted mapping per (dimension, round_type,
@@ -33,6 +36,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
+from ai_core.outbox import OutboxRow
 from ai_core.timeutil import utcnow
 from sqlalchemy import JSON as SAJSON
 from sqlalchemy import Column, Index
@@ -44,8 +48,17 @@ def _uuid() -> uuid.UUID:
 
 
 class OutboxState(StrEnum):
+    """`ai_core.outbox`'s states, named here so existing callers keep working."""
+
     pending = "pending"
+    #: Claimed by a sender. A claim older than the policy's stale window is
+    #: nobody's, so a crashed process cannot strand a row.
+    sending = "sending"
     sent = "sent"
+    #: Nothing was owed after all — superseded before it went.
+    void = "void"
+    #: The upstream is up and keeps answering with errors. Needs a person.
+    held = "held"
     #: Permanently rejected by M04 — a 4xx that a replay cannot fix. Kept
     #: rather than deleted, because "the mastery map is missing this answer"
     #: is a question someone will ask.
@@ -101,12 +114,15 @@ class Evaluation(SQLModel, table=True):
     superseded_by: uuid.UUID | None = Field(default=None, index=True)
 
 
-class ObservationOutbox(SQLModel, table=True):
+class ObservationOutbox(OutboxRow, table=True):
     """An observation bound for M04, and whether it got there.
 
     The id is M04's own content hash, not a fresh uuid4. That is what makes a
     replay safe: M04 inserts on conflict-do-nothing, so sending the same row
     twice is a no-op rather than a double-counted answer.
+
+    The delivery columns — state, attempts, failures, the claim and the
+    backoff — come from `ai_core.outbox.OutboxRow`.
     """
 
     __tablename__ = "m13_observation_outbox"
@@ -122,12 +138,27 @@ class ObservationOutbox(SQLModel, table=True):
     candidate_id: uuid.UUID = Field(index=True)
     concept_id: str = Field(index=True)
     kind: str = "answer_scored"
-    state: str = Field(default=OutboxState.pending, index=True)
-    attempts: int = 0
-    last_error: str | None = None
     payload: dict = Field(default_factory=dict, sa_column=Column(SAJSON))
-    created_at: datetime = Field(default_factory=utcnow, index=True)
-    sent_at: datetime | None = None
+
+
+class CoverageOutbox(OutboxRow, table=True):
+    """The `scored` transition one evaluation owes M02's coverage ledger.
+
+    Addressed by TURN, not by requirement: M13 does not know which of M02's
+    requirements a question was about, and should not — M06 already told M02
+    that when it wrote the turn's `asked` row. M02 maps the turn to its
+    requirements, and accepts a score that arrives before the `asked` row does,
+    so the order the two modules' outboxes happen to drain in cannot matter.
+    """
+
+    __tablename__ = "m13_coverage_outbox"
+
+    id: uuid.UUID = Field(default_factory=_uuid, primary_key=True)
+    evaluation_id: uuid.UUID = Field(index=True)
+    turn_id: uuid.UUID = Field(index=True)
+    session_id: uuid.UUID
+    candidate_id: uuid.UUID
+    payload: dict = Field(default_factory=dict, sa_column=Column(SAJSON))
 
 
 class HumanRating(SQLModel, table=True):
@@ -222,6 +253,7 @@ Index("ix_m13_outbox_pending", ObservationOutbox.state, ObservationOutbox.create
 
 __all__ = [
     "Calibration",
+    "CoverageOutbox",
     "Dispute",
     "DisputeState",
     "Evaluation",

@@ -248,7 +248,11 @@ def test_coverage_takes_the_concept_bearing_score(scored):
     bearing = next(
         s for s in evaluation.aggregated if s.dimension_key == rubric.concept_bearing_key
     )
-    assert emit.coverage_update(evaluation, rubric)["score"] == float(bearing.raw_score)
+    update = emit.coverage_update(evaluation, rubric)
+    assert update["raw_category"] == bearing.raw_score
+    # On 0..1, because M02 keeps one ledger across rubrics of different scales.
+    assert update["score"] == pytest.approx(bearing.raw_score / (update["n_categories"] - 1))
+    assert 0.0 <= update["score"] <= 1.0
 
 
 # ── the bundle ───────────────────────────────────────────────────────────

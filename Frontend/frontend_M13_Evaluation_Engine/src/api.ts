@@ -26,6 +26,7 @@ import type {
   ModuleStatus,
   Outbound,
   OutboxStatus,
+  RequeueResult,
   RaterQueue,
   Rubric,
   RubricList,
@@ -189,6 +190,15 @@ export function useDrainOutbox() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<DrainResult>("/v1/outbox/drain", {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: m13Keys.outbox }),
+  });
+}
+
+/** Put held and rejected rows back in the queue — after the cause is fixed. */
+export function useRequeueOutbox() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<RequeueResult>("/v1/outbox/requeue", {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: m13Keys.outbox }),
   });
 }

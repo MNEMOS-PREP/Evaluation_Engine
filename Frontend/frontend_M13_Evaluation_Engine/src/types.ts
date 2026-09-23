@@ -326,11 +326,51 @@ export interface OutboxItem {
   last_error: string | null;
 }
 
+export interface StuckRow {
+  id: string;
+  state: "held" | "rejected";
+  attempts: number;
+  failures: number;
+  last_error: string | null;
+  concept_id?: string;
+  turn_id?: string;
+  [key: string]: unknown;
+}
+
+/** One destination, as `ai_core.outbox.summary` reports it. */
+export interface ChannelSummary {
+  pending: number;
+  sending: number;
+  sent: number;
+  void: number;
+  held: number;
+  rejected: number;
+  owed: number;
+  stuck: number;
+  oldest_owed_s: number | null;
+  next_retry_in_s: number | null;
+  errors: { error: string; rows: number }[];
+  stuck_rows: StuckRow[];
+  configured?: boolean;
+}
+
+export interface SweeperStatus {
+  running: boolean;
+  interval_s: number;
+  last_sweep_at: string | null;
+}
+
 export interface OutboxStatus {
   pending: number;
   url: string;
   authenticated: boolean;
   items: OutboxItem[];
+  channels: Record<string, ChannelSummary>;
+  sweeper: SweeperStatus;
+}
+
+export interface RequeueResult {
+  requeued: Record<string, number>;
 }
 
 export interface DrainResult {

@@ -5,8 +5,8 @@ returns a placeholder is worse than one that does not: a caller writes against
 it and finds out later.
 
 The outbound half of the contract — what M13 *sends* — is not here. It lives
-in `emit.py` and drains through `store.drain()`, because a student's score must
-never wait on another module answering.
+in `emit.py` and is delivered by `delivery.py`'s sweeper, because a student's
+score must never wait on another module answering.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import uuid
 
+from ai_core import outbox as core_outbox
 from ai_core.db import get_session
 from ai_core.evidence import sha256_hex
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,14 +22,14 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from . import calibration as calib
+from . import delivery, rubrics, store
 from . import emit as emit_module
 from . import llm as llm_module
-from . import rubrics, store
 from .adapters import get_questions, regression_cases
 from .contracts import Rubric, TurnEvaluation
 from .dependencies import deps
 from .ensemble import CONFIGS, N1_PRACTICE
-from .models import Calibration, HumanRating
+from .models import Calibration, CoverageOutbox, HumanRating, ObservationOutbox
 from .rubrics import get_rubric as _get_rubric
 from .service import TurnInput, evaluate_turn, freeze_artifacts, outbound
 
@@ -243,6 +244,9 @@ def create_evaluation(
     )
     if request.supersedes is not None:
         store.supersede(session, request.supersedes, evaluation.id)
+    # Out in milliseconds rather than at the next sweep. The sweep is the
+    # safety net for the rows that fail, not the delivery mechanism.
+    delivery.kick()
     return evaluation
 
 
@@ -359,10 +363,26 @@ def read_outbound(turn_id: uuid.UUID, session: Session = Depends(get_session)) -
 # ── the outbox ───────────────────────────────────────────────────────────
 
 
+def _describe_observation(row: ObservationOutbox) -> dict:
+    return {"id": str(row.observation_id), "concept_id": row.concept_id,
+            "candidate_id": str(row.candidate_id)}
+
+
+def _describe_coverage(row: CoverageOutbox) -> dict:
+    return {"id": str(row.id), "turn_id": str(row.turn_id), "session_id": str(row.session_id)}
+
+
 @router.get("/outbox")
 def outbox_status(session: Session = Depends(get_session)) -> dict:
+    """What is owed, to whom, and every row that is stuck — with its reason.
+
+    A rejected row used to vanish from this view (`pending: 0`, `items: []`)
+    and the only place to read why was the database. It is listed now,
+    because a row nobody can see is a row nobody fixes.
+    """
     pending = store.pending_observations(session, limit=1000)
     return {
+        # The original shape, which the outbox page reads.
         "pending": len(pending),
         "url": emit_module.m04_base_url(),
         "authenticated": bool(emit_module.service_headers()),
@@ -371,13 +391,42 @@ def outbox_status(session: Session = Depends(get_session)) -> dict:
              "last_error": r.last_error}
             for r in pending[:20]
         ],
+        # Per destination, stuck rows included.
+        "channels": {
+            "m04.observations": core_outbox.summary(
+                session, ObservationOutbox, describe=_describe_observation
+            ),
+            "m02.coverage": {
+                **core_outbox.summary(session, CoverageOutbox, describe=_describe_coverage),
+                "configured": emit_module.coverage_url("s", "c", "t") is not None,
+            },
+        },
+        "sweeper": delivery.sweeper().status(),
     }
 
 
 @router.post("/outbox/drain")
 def outbox_drain(session: Session = Depends(get_session)) -> dict:
-    """Push what is pending to M04. Idempotent; safe to call repeatedly."""
+    """Deliver what is due, now. Idempotent; safe to call repeatedly.
+
+    Not how rows normally leave — the sweeper does that, and the evaluation
+    that wrote them kicks it. This is for a person who wants to watch it happen.
+    """
     return store.drain(session)
+
+
+@router.post("/outbox/requeue")
+def outbox_requeue(session: Session = Depends(get_session)) -> dict:
+    """Put held and rejected rows back in the queue, after the cause is fixed.
+
+    `failures` resets; `attempts` is kept, because the history is still true.
+    """
+    counts = {
+        "m04.observations": core_outbox.requeue(session, ObservationOutbox),
+        "m02.coverage": core_outbox.requeue(session, CoverageOutbox),
+    }
+    delivery.kick()
+    return {"requeued": counts}
 
 
 # ── disputes (§2.3) ──────────────────────────────────────────────────────

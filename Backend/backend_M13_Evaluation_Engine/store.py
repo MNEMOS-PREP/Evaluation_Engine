@@ -251,7 +251,11 @@ def http_sender(candidate_id: uuid.UUID, observations: list[dict]) -> tuple[bool
     outcome = core_outbox.post_json(
         emit_module.observations_url(candidate_id),
         {"observations": observations},
-        headers=emit_module.service_headers(),
+        headers={
+            **emit_module.service_headers(),
+            "X-Role": "student",
+            "X-Candidate-Id": str(candidate_id),
+        },
     )
     return outcome.ok, outcome.detail
 

@@ -156,6 +156,17 @@ def test_observations_carry_the_secret_under_the_platforms_name(engine, saved, w
     assert m04["headers"]["X-Service-Secret"] == "shared-with-m04"
 
 
+def test_observations_are_written_as_the_student_not_just_the_service(engine, saved, wire):
+    """M04 guards every candidate route on who the request is FOR. The secret
+    says M13 is calling; without the student, M04 answers 403 and no scored
+    answer moves the skill graph."""
+    _sweeper(engine).sweep_once()
+
+    (m04,) = wire.to("/observations")
+    assert m04["headers"]["X-Role"] == "student"
+    assert m04["headers"]["X-Candidate-Id"] == str(saved.candidate_id)
+
+
 def test_m04_down_all_afternoon_holds_nothing(engine, session, saved, wire):
     """An outage is not the row's fault. When M04 comes back, the rows go —
     without a person noticing and requeueing them."""

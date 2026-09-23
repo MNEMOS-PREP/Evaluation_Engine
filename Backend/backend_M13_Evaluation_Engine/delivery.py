@@ -13,7 +13,8 @@ module something. This file declares only what M13 owes, and to whom:
 
     m04.observations   one POST per candidate, a LIST in one transaction —
                        M04's endpoint takes it that way and its 60 ms budget
-                       is per call. Authenticated with `M04_SERVICE_SECRET`.
+                       is per call. `M04_SERVICE_SECRET` says M13 is the
+                       caller; the forwarded student says for whom.
     m02.coverage       one POST per turn, forwarding the student's identity
                        exactly as M06 does when it writes the same ledger.
 
@@ -62,7 +63,10 @@ def _observations(rows: list[ObservationOutbox]) -> Outcome:
     return post_json(
         emit_module.observations_url(candidate_id),
         {"observations": [dict(r.payload) for r in rows]},
-        headers=emit_module.service_headers(),
+        # The secret says M13 is calling; the student says on whose behalf.
+        # M04 guards every candidate route on the second (2026-09-23), and
+        # the secret alone no longer reads or writes anybody's record.
+        headers={**emit_module.service_headers(), **identity_headers(candidate_id)},
         timeout=SEND_TIMEOUT_S,
     )
 

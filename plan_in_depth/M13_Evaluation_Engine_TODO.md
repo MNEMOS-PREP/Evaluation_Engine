@@ -38,6 +38,21 @@ HTTP client either — `emit.py` assembles the payload and nothing delivers it,
 so the outbox has rows and no transport. M06 will start filling that outbox
 with real turns.
 
+### 2026-10-02 — asks from M06
+
+- ⬜ **M06's notes now show a student three of M13's fields** (M06 day 12):
+  each dimension's `reasoning`, its `missing_key_points`, and the quotes of
+  *verified* evidence spans — never a number; those stay behind the display
+  gate. State in the contract that these fields are student-visible, so their
+  wording is held to that standard (nothing that telegraphs, nothing like
+  "you should know this"). The evidence drawer is student-facing too, so this
+  may already be true — make it a rule rather than a coincidence.
+- ⬜ (standing) Code and canvas artifacts get a fresh `uuid4()` per evaluation,
+  so they can never resolve in M04 the way a transcript does.
+- **Confirmed live** (2026-10-02, M04's guard on): four evaluations scored from
+  M06's outbox; the scored channel reached M02; observations reached M04 and
+  moved hashing, time complexity and hashing internals to `emerging`.
+
 ---
 
 ## 0. Ideas and scouting

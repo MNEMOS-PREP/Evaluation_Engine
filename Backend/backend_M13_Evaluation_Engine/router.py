@@ -17,7 +17,9 @@ import uuid
 from ai_core import outbox as core_outbox
 from ai_core.db import get_session
 from ai_core.evidence import sha256_hex
-from fastapi import APIRouter, Depends, HTTPException, Query
+from ai_core.guard import candidate_guard, require_candidate
+from ai_core.identity import Principal
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -35,7 +37,35 @@ from .service import TurnInput, evaluate_turn, freeze_artifacts, outbound
 
 log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1", tags=["evaluation"])
+def enforce_access(request: Request, session: Session = Depends(get_session)) -> Principal | None:
+    """Who may ask — Platform_Core's `candidate_guard` (v0.11.0).
+
+    Until 2026-10-02 M13 checked nobody: a student's evaluation, its evidence
+    and the exact request M13 sent its evaluators were readable by anybody
+    holding a turn id. An evaluation is about one student, so its routes are
+    resolved to that student — by turn or by evaluation id, through the
+    request's own database session — and the guard decides. Routes that name
+    nobody (rubrics, ensembles, fixtures, calibration) stay open.
+    """
+
+    def by_turn(turn_id: str) -> str | None:
+        try:
+            row = store.latest_for_turn(session, uuid.UUID(turn_id))
+        except ValueError:
+            return None
+        return str(row.candidate_id) if row is not None else None
+
+    def by_evaluation(evaluation_id: str) -> str | None:
+        try:
+            row = store.get_evaluation(session, uuid.UUID(evaluation_id))
+        except ValueError:
+            return None
+        return str(row.candidate_id) if row is not None else None
+
+    return candidate_guard({"turn_id": by_turn, "evaluation_id": by_evaluation})(request)
+
+
+router = APIRouter(prefix="/v1", tags=["evaluation"], dependencies=[Depends(enforce_access)])
 
 
 class EvaluateRequest(BaseModel):
@@ -187,8 +217,12 @@ def list_fixtures() -> dict:
 
 @router.post("/evaluations", response_model=TurnEvaluation)
 def create_evaluation(
-    request: EvaluateRequest, session: Session = Depends(get_session)
+    request: EvaluateRequest,
+    session: Session = Depends(get_session),
+    principal: Principal | None = Depends(enforce_access),
 ) -> TurnEvaluation:
+    # The body names the student; the caller (M06's outbox) forwards them.
+    require_candidate(principal, request.candidate_id)
     source = get_questions()
     package = None
     if request.question_label is not None and hasattr(source, "by_label"):

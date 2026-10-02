@@ -57,6 +57,24 @@ with real turns.
 - ⬜ (standing) `cs_core` and `communication` rubrics. The second would also
   let M06 score the student's own closing questions (FR-6.21).
 
+### 2026-10-02 — who may ask, and the ledger's new address
+
+- ✅ **Platform_Core v0.10.0 → v0.11.0** on both halves.
+- ✅ **`candidate_guard` on the router — M13 had none.** A student's
+  evaluation, its evidence and the exact request sent to the evaluators were
+  readable by anyone holding a turn id. Routes now resolve a turn or
+  evaluation id to its student, and `POST /evaluations` checks the student
+  its body names. `tests/test_guard.py` covers it, and removing the guard
+  fails three of its tests. The suite's own client is staff, as in M04 and M15.
+- ✅ **The standalone frontend is the operator's console** and says so with
+  an admin dev identity. Inside the shell the identity is the student's, as
+  it should be.
+- ✅ **The scored channel posts to `/v1/coverage/...`**, M02's own noun now
+  (`sessions` is M05's in the shell).
+- ⬜ **The dispute queue, human ratings and outbox actions check no role.**
+  They want `Role.admin` or `researcher` on the server; the frontend would
+  need a per-request role, which `@ai/core`'s client cannot send yet.
+
 ---
 
 ## 0. Ideas and scouting

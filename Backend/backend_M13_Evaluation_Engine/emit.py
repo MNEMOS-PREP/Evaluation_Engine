@@ -362,7 +362,8 @@ def coverage_url(session_id: object, candidate_id: object, turn_id: object) -> s
     if dep is None or not dep.base_url:
         return None
     return (
-        f"{dep.base_url.rstrip('/')}/v1/sessions/{session_id}/coverage/{candidate_id}"
+        # M02's own noun since 2026-10-02 — `sessions` is M05's in the shell.
+        f"{dep.base_url.rstrip('/')}/v1/coverage/{session_id}/{candidate_id}"
         f"/turns/{turn_id}/score"
     )
 

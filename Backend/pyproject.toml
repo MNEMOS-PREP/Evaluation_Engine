@@ -20,7 +20,7 @@ dependencies = [
     # Shared platform foundation. PINNED BY TAG on purpose: tracking main is
     # how you get a surprise breakage on a Tuesday. v0.2.0 is where
     # `ai_core.evidence` landed, which is the contract this module produces.
-    "ai-core @ git+https://github.com/MNEMOS-PREP/Platform_Core@v0.10.0#subdirectory=python",
+    "ai-core @ git+https://github.com/MNEMOS-PREP/Platform_Core@v0.11.0#subdirectory=python",
 ]
 
 [project.optional-dependencies]

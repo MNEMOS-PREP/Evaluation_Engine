@@ -130,7 +130,7 @@ def test_one_sweep_delivers_everything_owed(engine, session, saved, wire):
 
     (m02,) = wire.to("/coverage/")
     assert m02["url"].endswith(
-        f"/v1/sessions/{saved.session_id}/coverage/{saved.candidate_id}/turns/{saved.turn_id}/score"
+        f"/v1/coverage/{saved.session_id}/{saved.candidate_id}/turns/{saved.turn_id}/score"
     )
     assert m02["payload"]["evaluation_id"] == str(saved.id)
 

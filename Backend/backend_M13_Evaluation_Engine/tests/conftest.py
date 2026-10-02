@@ -213,6 +213,9 @@ def client_fixture(session: Session) -> Iterator[TestClient]:
     from backend_M13_Evaluation_Engine.app import app
 
     app.dependency_overrides[get_session] = lambda: session
-    with TestClient(app) as client:
+    # Staff, as in M04's and M15's suites: these tests are about what M13
+    # computes, and staff may see any student. Who may ask is tested on its
+    # own, with a client that carries no identity (`test_guard.py`).
+    with TestClient(app, headers={"X-Role": "admin", "X-Candidate-Id": "test-admin"}) as client:
         yield client
     app.dependency_overrides.clear()

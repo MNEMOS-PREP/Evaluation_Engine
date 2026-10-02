@@ -52,6 +52,10 @@ with real turns.
 - **Confirmed live** (2026-10-02, M04's guard on): four evaluations scored from
   M06's outbox; the scored channel reached M02; observations reached M04 and
   moved hashing, time complexity and hashing internals to `emerging`.
+- ⬜ (standing) A `push_back` rubric variant. It unblocks M06's FR-6.20
+  (steelman probes), which stay off everywhere until it exists.
+- ⬜ (standing) `cs_core` and `communication` rubrics. The second would also
+  let M06 score the student's own closing questions (FR-6.21).
 
 ---
 

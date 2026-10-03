@@ -38,6 +38,14 @@ HTTP client either — `emit.py` assembles the payload and nothing delivers it,
 so the outbox has rows and no transport. M06 will start filling that outbox
 with real turns.
 
+### 2026-10-03 — the key file beside the repos
+
+- ✅ **`keys.py` reads the `keys.txt` beside the repos** (and `AI_KEYS_FILE`).
+  It read only Backend/ and the repo root, so on a fresh demo machine — one
+  shared key file, as M02 and M06 expect — M13 found no model and scored
+  nothing. `test_keys_location.py`; `start.bat` now says where each module
+  finds its key.
+
 ### 2026-10-03 — Platform_Core v0.12.0: roles, the service secret, the playground
 
 - ✅ **The operator's routes take `Role.admin`** (`require_role`): the outbox

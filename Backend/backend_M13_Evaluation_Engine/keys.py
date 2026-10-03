@@ -35,9 +35,22 @@ KEY_FILES = ("keys.txt", ".env")
 
 
 def _candidate_paths() -> list[Path]:
+    """Backend/, this repo's root, and the directory the sibling repos live in.
+
+    The third was M02's addition, and M06's: nineteen repositories should not
+    mean nineteen copies of one secret. One `keys.txt` beside the repos serves
+    them all, and on a fresh demo machine it is the only one there is — without
+    this root, this module found no key and ran without its model while M02 and
+    M06, reading the same file, had one (2026-10-03). `AI_KEYS_FILE` points
+    elsewhere for a deployment that mounts its secret somewhere else.
+    """
     here = Path(__file__).resolve()
-    roots = [here.parents[1], here.parents[2]]  # Backend/, repo root
-    return [root / name for root in roots for name in KEY_FILES]
+    roots = [here.parents[1], here.parents[2], here.parents[3]]
+    paths = [root / name for root in roots for name in KEY_FILES]
+    override = os.getenv("AI_KEYS_FILE")
+    if override:
+        paths.insert(0, Path(override).expanduser().resolve())
+    return paths
 
 
 def load_keys(*, override: bool = False) -> list[str]:

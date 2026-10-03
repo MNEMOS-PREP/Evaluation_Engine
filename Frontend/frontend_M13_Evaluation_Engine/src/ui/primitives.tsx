@@ -96,7 +96,15 @@ export function Btn({
     danger: "border border-contested-line bg-contested-soft text-contested hover:border-contested",
   };
   const sizes = { sm: "px-2.5 py-1 text-xs", md: "px-3.5 py-1.5 text-sm" };
-  return <button {...props} className={`${base} ${variants[variant]} ${sizes[size]}`} />;
+  // `children` was destructured above and then never rendered, so every one of
+  // this module's eighteen buttons - "Score it", "Resolve", "Drain" - drew as an
+  // empty pill. Found 2026-10-03 from a screenshot; nothing in the suite looks
+  // at a button's label.
+  return (
+    <button {...props} className={`${base} ${variants[variant]} ${sizes[size]}`}>
+      {children}
+    </button>
+  );
 }
 
 export function TextArea({

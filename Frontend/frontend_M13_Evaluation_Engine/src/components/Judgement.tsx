@@ -24,6 +24,14 @@ import { AgreementBadge, Panel, Pill } from "../ui/primitives";
 export const GATE_NOTE =
   "We're not showing a number here yet — our scoring on this dimension isn't accurate enough to be worth a number.";
 
+/** `kp_3` alone is an id; `[kp_3] Says the worst case…` carries its wording. */
+function visibleMissing(points: string[], devMode: boolean): string[] {
+  if (devMode) return points;
+  return points
+    .map((point) => point.replace(/^\[?kp_\d+\]?\s*/i, "").trim())
+    .filter(Boolean);
+}
+
 export function Judgement({
   drawer,
   score,
@@ -76,9 +84,9 @@ export function Judgement({
           {rubricDimension?.concept_bearing && (
             <Pill
               tone="brand"
-              title="This dimension's score is the one that becomes mastery in M04. The others do not."
+              title="This part of the marking is what moves your skill graph. The others don't."
             >
-              counts toward mastery
+              moves your skill graph
             </Pill>
           )}
           <AgreementBadge agreement={drawer.agreement} spread={spread} />
@@ -99,11 +107,13 @@ export function Judgement({
 
       {drawer.reasoning && <p className="mt-2.5 text-sm text-ink">{drawer.reasoning}</p>}
 
-      {drawer.missing_key_points.length > 0 && (
+      {/* Bare ids (kp_2) mean nothing to a student; the notes have the
+          wording. Shown when the entry carries its own text, or in dev mode. */}
+      {visibleMissing(drawer.missing_key_points, devMode).length > 0 && (
         <div className="mt-3">
           <p className="rule-label">Not covered</p>
           <ul className="mt-1 space-y-0.5">
-            {drawer.missing_key_points.map((point) => (
+            {visibleMissing(drawer.missing_key_points, devMode).map((point) => (
               <li key={point} className="flex gap-2 text-sm text-ink-soft">
                 <span aria-hidden className="text-ink-faint">
                   ○
@@ -131,7 +141,7 @@ export function Judgement({
             className="provenance hover:text-ink-soft"
             aria-expanded={showAnchors}
           >
-            {showAnchors ? "▾" : "▸"} what each level means
+            {showAnchors ? "▾" : "▸"} what each level looks like
           </button>
           {showAnchors && (
             <dl className="mt-1.5 space-y-1 border-l border-line pl-3">

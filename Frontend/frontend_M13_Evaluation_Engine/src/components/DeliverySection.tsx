@@ -31,10 +31,9 @@ export function DeliverySection({ delivery }: { delivery: DeliveryAssessment | n
       <Section label="How you delivered it">
         <Panel className="border-dashed px-4 py-3">
           <p className="text-sm text-ink-soft">
-            Not measured for this answer. Delivery — pace, filler words, eye contact — comes from{" "}
-            <strong className="text-ink">M12 Multimodal Suite</strong>, which is not running.
-            Nothing here was scored as zero because of it: an unmeasured signal is absent, not
-            bad.
+            Not measured for this answer — pace, filler words and eye contact need the voice and
+            video analysis, which isn't running yet. Nothing was marked down because of it: a
+            signal we didn't measure counts as absent, not bad.
           </p>
         </Panel>
       </Section>

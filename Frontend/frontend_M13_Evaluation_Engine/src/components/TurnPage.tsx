@@ -16,6 +16,8 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { PageHeader } from "@ai/core";
+
 import { useEvaluation, useEvidence, useRubric } from "../api";
 import type { TurnEvaluation } from "../types";
 import { useDevMode } from "../ui/AppShell";
@@ -49,14 +51,12 @@ export function TurnPage() {
 
   if (evaluation.isError || !evaluation.data || !evidence.data) {
     return (
-      <Empty title="No evaluation for that turn">
-        <p>
-          Nothing has been scored under this id yet. Score an answer and this page fills in.
-        </p>
-        <p className="provenance mt-2">{turnId}</p>
+      <Empty title="This answer hasn't been marked yet">
+        <p>Marking usually takes about a minute after an interview ends.</p>
+        {devMode && <p className="provenance mt-2">{turnId}</p>}
         <div className="mt-4">
-          <Link to="/score">
-            <Btn variant="primary">Score an answer</Btn>
+          <Link to="/answers">
+            <Btn variant="primary">See your answers</Btn>
           </Link>
         </div>
       </Empty>
@@ -73,26 +73,32 @@ export function TurnPage() {
 
   return (
     <>
-      <header className="mb-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-title font-semibold text-ink">Your answer, and what it earned</h1>
-          <StatusPill evaluation={evalData} />
-          {evalData.adjudicated && (
-            <Pill tone="reported" title={evalData.adjudication_note ?? undefined}>
-              adjudicated
-            </Pill>
-          )}
-          {evalData.superseded_by && (
-            <Pill tone="contested" title="A newer evaluation replaces this one.">
-              superseded
-            </Pill>
-          )}
-        </div>
-        <p className="provenance mt-1">
-          turn {evalData.turn_id} · {evalData.ensemble_config} ·{" "}
-          {evalData.evaluated_at ? new Date(evalData.evaluated_at).toLocaleString() : "—"}
-        </p>
-      </header>
+      <div className="mb-8">
+        <PageHeader
+          eyebrow={evalData.evaluated_at ? `Marked ${new Date(evalData.evaluated_at).toLocaleString()}` : undefined}
+          title="How your answer was marked"
+          subtitle="Every judgement points to the words of yours it was based on. Select one to highlight them."
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill evaluation={evalData} />
+            {evalData.adjudicated && (
+              <Pill tone="reported" title={evalData.adjudication_note ?? undefined}>
+                second opinion taken
+              </Pill>
+            )}
+            {evalData.superseded_by && (
+              <Pill tone="contested" title="A newer marking replaces this one.">
+                replaced by a newer marking
+              </Pill>
+            )}
+            {devMode && (
+              <span className="provenance">
+                turn {evalData.turn_id} · {evalData.ensemble_config}
+              </span>
+            )}
+          </div>
+        </PageHeader>
+      </div>
 
       <GradeBanner evaluation={evalData} />
 
@@ -103,8 +109,8 @@ export function TurnPage() {
             label="What you said"
             meta={
               transcript ? (
-                <span title="Checked at read time against the checksum recorded when this answer was scored.">
-                  {transcript.intact ? "checksum verified" : "checksum MISMATCH"}
+                <span title="Checked against a fingerprint taken when this answer was marked.">
+                  {transcript.intact ? "your exact words" : "doesn't match what you submitted — please report it"}
                 </span>
               ) : undefined
             }
@@ -149,11 +155,26 @@ export function TurnPage() {
               </Section>
             ))}
 
-          <KeyPointCoverage
-            coverage={evalData.key_point_coverage}
-            scaffoldUsed={evalData.scaffold_used}
-            method={evalData.versions.extractor_versions?.key_point_coverage}
-          />
+          {/* The per-point entailment scores are a research instrument, keyed
+              by ids (kp_1) because M13 never stores the key points' wording.
+              A student reads the wording, with what they missed, in their
+              interview notes — so they get that link, and dev mode keeps the
+              instrument. */}
+          {devMode ? (
+            <KeyPointCoverage
+              coverage={evalData.key_point_coverage}
+              scaffoldUsed={evalData.scaffold_used}
+              method={evalData.versions.extractor_versions?.key_point_coverage}
+            />
+          ) : (
+            <p className="mb-8 text-sm text-ink-soft">
+              What a strong answer covers, and which points yours reached, is in{" "}
+              <Link to={`/mock/${evalData.session_id}/report`} className="font-medium text-brand">
+                your interview notes
+              </Link>
+              .
+            </p>
+          )}
 
           <DeliverySection delivery={evalData.delivery} />
         </div>
@@ -231,14 +252,20 @@ function StatusPill({ evaluation }: { evaluation: TurnEvaluation }) {
  * "why does this look different from the paper" is otherwise unanswerable.
  */
 function GradeBanner({ evaluation }: { evaluation: TurnEvaluation }) {
+  const devMode = useDevMode();
   if (evaluation.score_grade === "calibration") return null;
   return (
     <p className="mb-8 rounded-panel border border-line bg-surface-sunken px-3.5 py-2.5 text-xs text-ink-soft">
-      <strong className="font-semibold text-ink">Development-grade evaluation.</strong> The
-      reasoning and the quotes below are real, and every quote was checked against the answer.
-      The scores behind them are not eligible to be shown as a number or to enter the
-      calibration corpus — that is what <code className="font-mono">score_grade: dev</code>{" "}
-      means, and it is enforced by the field rather than by anyone remembering.
+      <strong className="font-semibold text-ink">Practice marking.</strong> The reasoning and the
+      quotes below are real, and every quote was checked against your answer. Numbers stay hidden
+      until this marking agrees with human markers.
+      {devMode && (
+        <>
+          {" "}
+          Not eligible for the calibration corpus: <code className="font-mono">score_grade: dev</code>,
+          enforced by the field rather than by anyone remembering.
+        </>
+      )}
     </p>
   );
 }

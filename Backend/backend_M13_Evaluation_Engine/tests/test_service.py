@@ -198,3 +198,18 @@ def test_only_scored_delivery_signals_can_reach_a_numeric():
     # M12's protocol exists to prevent.
     unknown = DeliveryAssessment(subscores={"mystery": 4.0}, dispositions={})
     assert unknown.scored_subscores() == {}
+
+
+def test_the_lexical_fallback_only_calls_a_point_missing_when_its_words_are_absent():
+    """2026-10-04, found live: a complete answer paraphrased all three key
+    points (0.43, 0.43, 0.25 shared words), the evaluator said nothing was
+    missing, and the lexical fallback — held to the entailment bar — told the
+    student they had covered none of them."""
+    from backend_M13_Evaluation_Engine.coverage import Coverage
+
+    paraphrased = Coverage(scores={"kp_1": 0.43, "kp_2": 0.43, "kp_3": 0.25}, method="lexical")
+    assert paraphrased.missing() == []
+    absent = Coverage(scores={"kp_1": 0.43, "kp_2": 0.1}, method="lexical")
+    assert absent.missing() == ["kp_2"]
+    # The entailment model keeps its own bar.
+    assert Coverage(scores={"kp_1": 0.43}, method="nli").missing() == ["kp_1"]

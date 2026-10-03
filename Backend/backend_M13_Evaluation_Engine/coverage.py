@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Protocol
 
-from .contracts import KP_ENTAILMENT_THRESHOLD
+from .contracts import KP_ENTAILMENT_THRESHOLD, KP_LEXICAL_ABSENT_BELOW
 from .projection import KeyPoint
 
 log = logging.getLogger(__name__)
@@ -62,7 +62,17 @@ class Coverage:
     def available(self) -> bool:
         return self.method != "none"
 
-    def missing(self, threshold: float = KP_ENTAILMENT_THRESHOLD) -> list[str]:
+    def missing(self, threshold: float | None = None) -> list[str]:
+        """Key points the answer did not cover, by this measure's own bar.
+
+        The lexical fallback counts shared words, not meaning, so it may only
+        call a point missing when almost none of its words are there — at the
+        entailment bar it flagged every paraphrase, and the student read
+        "not covered" under an answer the evaluator called complete.
+        """
+        if threshold is None:
+            lexical = self.method == "lexical"
+            threshold = KP_LEXICAL_ABSENT_BELOW if lexical else KP_ENTAILMENT_THRESHOLD
         return sorted(k for k, v in self.scores.items() if v < threshold)
 
 

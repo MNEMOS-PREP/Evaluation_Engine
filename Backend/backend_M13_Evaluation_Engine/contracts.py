@@ -41,7 +41,14 @@ N_CATEGORIES = SCALE_MAX - SCALE_MIN + 1
 #: Versioned because it moves scores: a change here changes every
 #: `missing_key_points` list and therefore every checklist a student reads.
 KP_ENTAILMENT_THRESHOLD = 0.5
-KP_THRESHOLD_VERSION = "1.0"
+#: The lexical fallback's own bar, far lower: a share of a key point's content
+#: WORDS is not entailment, and a correct paraphrase routinely shares under
+#: half of them. Below this, nearly every content word is absent — the one
+#: case LexicalCoverage's docstring says it can be trusted with.
+#: 1.1 (2026-10-04): the fallback used the entailment bar, so an answer the
+#: evaluator judged complete was told it had covered none of the key points.
+KP_LEXICAL_ABSENT_BELOW = 0.2
+KP_THRESHOLD_VERSION = "1.1"
 
 
 # ─────────────────────────────────────────────────────────────────────────

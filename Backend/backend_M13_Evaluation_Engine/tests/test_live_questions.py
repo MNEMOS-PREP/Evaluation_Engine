@@ -57,10 +57,12 @@ class Wire:
     def __init__(self, routes: dict[str, object]):
         self.routes = routes
         self.asked: list[str] = []
+        self.secrets: list[str | None] = []
 
     def __call__(self, request, timeout=None):
         url = request.full_url
         self.asked.append(url)
+        self.secrets.append(request.get_header("X-service-secret"))
         for fragment, response in self.routes.items():
             if fragment in url:
                 if isinstance(response, int):
@@ -196,3 +198,17 @@ def test_scoring_a_live_m05_turn_end_to_end(client, wire):
         assert body["status"] in ("complete", "needs_human_review")
     finally:
         adapters.set_questions(None)
+
+
+def test_m05_is_asked_as_a_module(wire):
+    """M05 serves the answer key only to a caller holding the platform secret
+    (Platform_Core v0.12.0). Asked without it, `/package` is a 401, and every
+    live item would silently fall through to the fixture bank and then 404."""
+    from ai_core import service
+
+    recorder = wire(
+        {"/package": PACKAGE, f"/v1/questions/{QUESTION_ID}": {"round_types": ["dsa_verbal"]}}
+    )
+    LiveQuestions("http://m05").get(QUESTION_ID, None)
+    assert len(recorder.asked) == 2
+    assert recorder.secrets == [service.secret(), service.secret()]

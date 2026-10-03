@@ -38,6 +38,25 @@ HTTP client either — `emit.py` assembles the payload and nothing delivers it,
 so the outbox has rows and no transport. M06 will start filling that outbox
 with real turns.
 
+### 2026-10-03 — Platform_Core v0.12.0: roles, the service secret, the playground
+
+- ✅ **The operator's routes take `Role.admin`** (`require_role`): the outbox
+  and its drain and requeue, the dispute queue and its resolve, human ratings
+  and the raters' queue. `assert_staff_only` finds all seven from the OpenAPI
+  document. Researchers are not let in: rating a turn means reading the
+  answer, and a researcher sees cohorts only.
+- ✅ **Who resolved a dispute is who is signed in**, not the `resolved_by`
+  the body carried (the screen sent "unknown").
+- ✅ **M05 is asked as a module.** M05 now serves its answer key only with the
+  platform secret; `LiveQuestions` sends `ai_core.service.headers()`, as
+  `emit.py` does for M04. Without it every live item would 401 and fall
+  through to "no package".
+- ✅ **Found: the playground 403'd in the shell.** `POST /evaluations` with
+  no `candidate_id` defaulted to a random one, which the v0.11.0 guard then
+  refused as somebody else's. Absent now means the student asking.
+- ✅ **Frontend on the platform session**: standalone signs in as the
+  operator only when nobody is signed in.
+
 ### 2026-10-02 — asks from M06
 
 - ⬜ **M06's notes now show a student three of M13's fields** (M06 day 12):
@@ -71,9 +90,9 @@ with real turns.
   it should be.
 - ✅ **The scored channel posts to `/v1/coverage/...`**, M02's own noun now
   (`sessions` is M05's in the shell).
-- ⬜ **The dispute queue, human ratings and outbox actions check no role.**
-  They want `Role.admin` or `researcher` on the server; the frontend would
-  need a per-request role, which `@ai/core`'s client cannot send yet.
+- ✅ **The dispute queue, human ratings and outbox actions check no role** —
+  fixed 2026-10-03, see above. No per-request role was needed: the shell's
+  sign-in sets one session for the page, and an operator signs in as one.
 
 ---
 

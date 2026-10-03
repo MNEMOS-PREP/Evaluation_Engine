@@ -17,8 +17,8 @@ import uuid
 from ai_core import outbox as core_outbox
 from ai_core.db import get_session
 from ai_core.evidence import sha256_hex
-from ai_core.guard import candidate_guard, require_candidate
-from ai_core.identity import Principal
+from ai_core.guard import candidate_guard, require_candidate, require_role
+from ai_core.identity import Principal, Role
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -67,12 +67,22 @@ def enforce_access(request: Request, session: Session = Depends(get_session)) ->
 
 router = APIRouter(prefix="/v1", tags=["evaluation"], dependencies=[Depends(enforce_access)])
 
+#: The operator's routes: the outbox, the dispute queue, the raters. They name
+#: no student, so the guard above let them through, and until 2026-10-02 any
+#: browser could read every open dispute, drain or requeue the outbox, or
+#: submit human ratings into the calibration study (Platform_Core v0.12.0).
+#: Administrators only — a placement officer has no part in how M13 scores.
+operator_only = require_role(Role.admin)
+
 
 class EvaluateRequest(BaseModel):
     """What M6 posts when a turn finishes. Async in production (FR-13.19)."""
 
     turn_id: uuid.UUID = Field(default_factory=uuid.uuid4)
-    candidate_id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    #: Absent means "the student asking" — the playground's case. It used to
+    #: mean a random id, which the guard then refused: a student scoring their
+    #: own answer in the shell got "This is not your record."
+    candidate_id: uuid.UUID | None = None
     session_id: uuid.UUID = Field(default_factory=uuid.uuid4)
     question_id: uuid.UUID | None = None
     #: Convenience for the fixture bank while M5 does not exist (§6.11).
@@ -222,6 +232,9 @@ def create_evaluation(
     principal: Principal | None = Depends(enforce_access),
 ) -> TurnEvaluation:
     # The body names the student; the caller (M06's outbox) forwards them.
+    if request.candidate_id is None:
+        own = principal.candidate_id if principal is not None else None
+        request.candidate_id = uuid.UUID(own) if own else uuid.uuid4()
     require_candidate(principal, request.candidate_id)
     source = get_questions()
     package = None
@@ -406,7 +419,7 @@ def _describe_coverage(row: CoverageOutbox) -> dict:
     return {"id": str(row.id), "turn_id": str(row.turn_id), "session_id": str(row.session_id)}
 
 
-@router.get("/outbox")
+@router.get("/outbox", dependencies=[Depends(operator_only)])
 def outbox_status(session: Session = Depends(get_session)) -> dict:
     """What is owed, to whom, and every row that is stuck — with its reason.
 
@@ -419,6 +432,8 @@ def outbox_status(session: Session = Depends(get_session)) -> dict:
         # The original shape, which the outbox page reads.
         "pending": len(pending),
         "url": emit_module.m04_base_url(),
+        # Always, since Platform_Core v0.12.0: with nothing configured the
+        # machine secret is sent. Kept for the outbox page, which reads it.
         "authenticated": bool(emit_module.service_headers()),
         "items": [
             {"id": str(r.observation_id), "concept_id": r.concept_id, "attempts": r.attempts,
@@ -439,7 +454,7 @@ def outbox_status(session: Session = Depends(get_session)) -> dict:
     }
 
 
-@router.post("/outbox/drain")
+@router.post("/outbox/drain", dependencies=[Depends(operator_only)])
 def outbox_drain(session: Session = Depends(get_session)) -> dict:
     """Deliver what is due, now. Idempotent; safe to call repeatedly.
 
@@ -449,7 +464,7 @@ def outbox_drain(session: Session = Depends(get_session)) -> dict:
     return store.drain(session)
 
 
-@router.post("/outbox/requeue")
+@router.post("/outbox/requeue", dependencies=[Depends(operator_only)])
 def outbox_requeue(session: Session = Depends(get_session)) -> dict:
     """Put held and rejected rows back in the queue, after the cause is fixed.
 
@@ -496,7 +511,7 @@ def create_dispute(
     }
 
 
-@router.get("/disputes/queue")
+@router.get("/disputes/queue", dependencies=[Depends(operator_only)])
 def dispute_queue(session: Session = Depends(get_session)) -> dict:
     rows = list(store.open_disputes(session))
     # A dispute names the evaluation it challenges — a specific reading of an
@@ -528,14 +543,20 @@ def dispute_queue(session: Session = Depends(get_session)) -> dict:
 
 @router.post("/disputes/{dispute_id}/resolve")
 def resolve(
-    dispute_id: uuid.UUID, request: ResolveRequest, session: Session = Depends(get_session)
+    dispute_id: uuid.UUID,
+    request: ResolveRequest,
+    session: Session = Depends(get_session),
+    operator: Principal = Depends(operator_only),
 ) -> dict:
+    # Who resolved it is who is signed in. `resolved_by` in the body was the
+    # stand-in for that before there was anybody to ask, and the screen sent
+    # "unknown"; it is kept for old callers and no longer trusted.
     row = store.resolve_dispute(
         session,
         dispute_id,
         upheld=request.upheld,
         note=request.note,
-        resolved_by=request.resolved_by,
+        resolved_by=operator.subject,
     )
     if row is None:
         raise HTTPException(status_code=404, detail="no such dispute")
@@ -545,7 +566,7 @@ def resolve(
 # ── the calibration study (§6.6) ─────────────────────────────────────────
 
 
-@router.post("/human-ratings")
+@router.post("/human-ratings", dependencies=[Depends(operator_only)])
 def submit_rating(request: RatingRequest, session: Session = Depends(get_session)) -> dict:
     row = HumanRating(**request.model_dump())
     session.add(row)
@@ -553,7 +574,7 @@ def submit_rating(request: RatingRequest, session: Session = Depends(get_session
     return {"id": str(row.id)}
 
 
-@router.get("/human-ratings/queue")
+@router.get("/human-ratings/queue", dependencies=[Depends(operator_only)])
 def rating_queue(
     rater_id: str = Query(...),
     limit: int = Query(20, le=100),

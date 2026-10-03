@@ -13,7 +13,7 @@ from collections.abc import Iterator
 import pytest
 from ai_core.db import get_session
 from ai_core.guard import identity_headers
-from ai_core.testing import OWNER, assert_refuses_strangers
+from ai_core.testing import OWNER, assert_refuses_strangers, assert_staff_only
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -91,3 +91,58 @@ def test_a_dispute_is_the_students_own(bare, cases):
     url = f"/v1/evaluations/{evaluation['id']}/dispute"
     body = {"reason": "the quote is not what I said", "dimension_key": "correctness"}
     assert bare.post(url, json=body, headers=identity_headers(STRANGER)).status_code == 403
+
+
+# ── v0.12.0: the operator's routes, and the playground ────────────────────────
+
+ADMIN = {"X-Role": "admin", "X-Candidate-Id": "ops-ana"}
+
+
+def test_the_operators_routes_are_for_administrators(bare):
+    """Found from the OpenAPI document. Until 2026-10-02 any browser could
+    read every open dispute, drain or requeue the outbox, and post ratings
+    into the calibration study."""
+    from backend_M13_Evaluation_Engine.app import app
+
+    gated = assert_staff_only(bare, app, expect_at_least=7)
+    assert ("GET", "/v1/disputes/queue") in gated
+    assert ("POST", "/v1/human-ratings") in gated
+    assert ("POST", "/v1/outbox/requeue") in gated
+
+
+def test_a_student_scores_their_own_answer_without_naming_themselves(bare, cases):
+    """The playground in the shell sends no candidate_id. That used to default
+    to a random one, which the guard then refused as somebody else's."""
+    llm_module.set_llm(StubLLM("honest"))
+    mine = str(uuid.uuid4())
+    response = bare.post(
+        "/v1/evaluations",
+        json={
+            "question_label": "hashmap_lookup_why",
+            "answer_text": cases["hashmap_full_credit"].answer_text,
+        },
+        headers=identity_headers(mine),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["candidate_id"] == mine
+
+
+def test_who_resolved_a_dispute_is_who_was_signed_in(bare, cases, session):
+    from backend_M13_Evaluation_Engine.models import Dispute
+
+    mine = str(uuid.uuid4())
+    evaluation = _score_for(bare, mine, str(uuid.uuid4()), cases)
+    opened = bare.post(
+        f"/v1/evaluations/{evaluation['id']}/dispute",
+        json={"reason": "misquoted"},
+        headers=identity_headers(mine),
+    ).json()
+    resolved = bare.post(
+        f"/v1/disputes/{opened['dispute_id']}/resolve",
+        json={"upheld": False, "resolved_by": "somebody else entirely"},
+        headers=ADMIN,
+    )
+    assert resolved.status_code == 200
+    session.expire_all()
+    row = session.get(Dispute, uuid.UUID(opened["dispute_id"]))
+    assert row.resolved_by == "ops-ana"

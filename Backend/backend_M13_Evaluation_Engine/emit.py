@@ -32,6 +32,7 @@ import os
 import uuid
 from dataclasses import dataclass
 
+from ai_core import service as platform_service
 from ai_core.timeutil import utcnow
 
 from .adapters import QuestionPackage
@@ -335,19 +336,16 @@ def retest_url(candidate_id: uuid.UUID, concept_id: str) -> str:
     return f"{m04_base_url()}/v1/candidates/{candidate_id}/mastery/{concept_id}/dispute"
 
 
-#: The name M04 reads (its `keys.SERVICE_SECRET_VAR`) and M15 sends. M13 read a
-#: bare `SERVICE_SECRET`, so with the platform's documented variable set, every
-#: observation still went out unauthenticated. The old name is still read, so a
-#: keys.txt written against it keeps working.
-SERVICE_SECRET_VARS = ("M04_SERVICE_SECRET", "SERVICE_SECRET")
+#: Kept for callers that import them; the secret itself is Platform_Core's
+#: since v0.12.0 (`ai_core.service`) — M13 had read its own copy of it, and with
+#: the platform's documented variable set every observation had gone out
+#: unauthenticated once already.
+SERVICE_SECRET_VARS = platform_service.SECRET_VARS
 
 
 def service_headers() -> dict[str, str]:
-    for name in SERVICE_SECRET_VARS:
-        secret = os.getenv(name, "").strip()
-        if secret:
-            return {SERVICE_SECRET_HEADER: secret}
-    return {}
+    """What M13 sends when it calls another module as itself."""
+    return platform_service.headers()
 
 
 def coverage_url(session_id: object, candidate_id: object, turn_id: object) -> str | None:

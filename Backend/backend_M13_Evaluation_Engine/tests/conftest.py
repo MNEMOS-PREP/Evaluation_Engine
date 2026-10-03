@@ -124,6 +124,13 @@ def _artifact_id_from_schema(schema: dict) -> str:
 
 
 @pytest.fixture(autouse=True)
+def _service_secret(monkeypatch):
+    """A known platform secret, so no test reads or writes the developer's
+    machine secret under their home directory (Platform_Core v0.12.0)."""
+    monkeypatch.setenv("SERVICE_SECRET", "m13-test-secret")
+
+
+@pytest.fixture(autouse=True)
 def _no_network_llm():
     """No test may reach a real model. Restores whatever was there afterwards."""
     llm_module.set_llm(llm_module.NullLLM())

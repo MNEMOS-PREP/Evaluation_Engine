@@ -11,7 +11,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import { setIdentityHeaders } from "@ai/core";
+import { ensureSession } from "@ai/core";
 
 import { m13Routes } from "./routes";
 import { AppShell } from "./ui/AppShell";
@@ -27,13 +27,13 @@ const queryClient = new QueryClient({
 });
 
 // M13 alone on :5213 is the operator's console — the playground, the evidence
-// drawer for any turn, the raters' queue — and M13's backend checks who is
-// asking since 2026-10-02 (Platform_Core v0.11.0). So standalone, it says it
-// is an operator. NOT in `routes.tsx`: inside Platform_Shell every module
-// shares one page and one identity, and that identity is the student's — who
-// may read their own evaluations and nobody else's, which is the point.
-// Dev headers, honoured by the backend only under AI_AUTH_MODE=dev.
-setIdentityHeaders({ "X-Role": "admin", "X-Candidate-Id": "m13-operator" });
+// drawer for any turn, the raters' queue, the dispute queue — and those last
+// routes are administrators' only (Platform_Core v0.12.0). So standalone, with
+// nobody signed in, it signs in as an operator. NOT in `routes.tsx`: inside
+// Platform_Shell the session is whoever signed in on the shell's screen, and a
+// student there reads their own evaluations and nobody else's.
+// The dev session, honoured by the backend only under AI_AUTH_MODE=dev.
+ensureSession({ role: "admin", subject: "m13-operator", name: "M13 operator" });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

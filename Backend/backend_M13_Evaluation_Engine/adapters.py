@@ -31,6 +31,8 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID, uuid5
 
+from ai_core import service as platform_service
+
 from .contracts import DeliveryAssessment
 from .projection import KeyPoint
 
@@ -318,7 +320,15 @@ class LiveQuestions:
     def _json(self, path: str) -> dict | None:
         request = urllib.request.Request(
             f"{self.base_url.rstrip('/')}{path}",
-            headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+            # As a module: M05 serves the answer key — the reference and key
+            # points this scores against — only to a caller holding the
+            # platform secret (Platform_Core v0.12.0). Without it `/package`
+            # is a 401 and every live item falls through to "no package".
+            headers={
+                "Accept": "application/json",
+                "User-Agent": USER_AGENT,
+                **platform_service.headers(),
+            },
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout_s) as response:

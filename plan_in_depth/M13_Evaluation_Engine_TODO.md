@@ -1,9 +1,9 @@
 # M13 — TODO · Evaluation Engine
 
 
-> **Completion: 95%** — 19 of 21 functional requirements met, 2 partially. Every requirement has shipped code. Two are incomplete rather than absent: the human-rating queue has no test, and the M02 ledger write is **built but never sent** — `emit.py` assembles the payload and the module contains no HTTP client to deliver it, so the outbox has rows and no transport. FR-13.21 degrades rather than blocks, because M12 is `required: false`.
+> **Completion: 98%** — 20 of 21 functional requirements met, 1 partially. Every requirement has shipped code. The one incomplete: the human-rating queue has no test. The M02 ledger write the 2026-08-28 audit found **built but never sent** has been delivered since 2026-09-23 — `delivery.py`'s sweeper, on `ai_core.outbox`, sends both channels (M04's observations, M02's coverage) on an interval and on every new evaluation. FR-13.21 degrades rather than blocks, because M12 is `required: false`.
 >
-> _Method: `(met + ½ × partial) ÷ total`, audited against shipped code, 2026-08-28. One measure applied the same way to all nineteen modules so they compare; it counts requirements, not screens or gates._
+> _Method: `(met + ½ × partial) ÷ total`, audited against shipped code, 2026-08-28; re-checked 2026-10-04: the ledger gap is closed (95% → 98%). One measure applied the same way to all nineteen modules so they compare; it counts requirements, not screens or gates._
 
 Running list for **M13 Evaluation Engine**.
 Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
@@ -17,6 +17,22 @@ Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 - **Repo:** `Evaluation_Engine`
 
 Legend: ✅ done · 🟡 partly done · ⬜ not started
+
+### 2026-10-04 — the evidence page talks to a student
+
+- ✅ **The lexical fallback stops calling paraphrased key points missing.** With
+  no NLI model, coverage is word overlap, and it was held to the entailment
+  bar (0.5): a correct paraphrase shares under half a key point's words, so a
+  complete answer read "Not covered yet" three times. The lexical measure has
+  its own bar now (`KP_LEXICAL_ABSENT_BELOW = 0.2`); the NLI model keeps 0.5.
+  `KP_THRESHOLD_VERSION` 1.1, because it changes checklists.
+- ✅ **The evidence page in a student's words**: "How your answer was marked",
+  "your exact words", "second opinion taken". The calibration vocabulary and
+  bare key-point ids are for dev mode.
+- ✅ The dispute-queue and outbox hooks are exported, so an administrator's
+  first page counts open disputes and stuck rows.
+- ✅ (2026-10-03) M13's buttons have labels again — `Btn` dropped its children,
+  and eighteen buttons drew as empty pills. Found from a screenshot.
 
 ### 2026-09-17 — the M05 seam is wired
 
@@ -36,7 +52,7 @@ knows it.
 **Still open, and the same class of gap:** the M04 observation emit has no
 HTTP client either — `emit.py` assembles the payload and nothing delivers it,
 so the outbox has rows and no transport. M06 will start filling that outbox
-with real turns.
+with real turns. **Closed 2026-09-23:** `delivery.py`'s sweeper delivers it; see §1.
 
 ### 2026-10-03 — the key file beside the repos
 
@@ -122,36 +138,26 @@ _Nothing scouted for this module yet._
 
 | | |
 |---|---|
-| Status | **Built, and not yet audited against the spec.** |
-| Backend tests passing | **135** |
-| Release gates (`-m gate`) | **25** |
-| Route decorators | **20** |
-| Frontend | present |
+| Status | **Built.** FR coverage was audited on 2026-08-28 and re-checked on 2026-10-04 (the header). The per-requirement table was never written into this file, and the §13 acceptance gates have not been walked one by one |
+| Backend tests passing | **172** |
+| Release gates (`-m gate`) | **31** |
+| Frontend | the operator's console standalone; in the shell, the student's "How your answer was marked" page and the staff queues |
 
-*Counted 2026-08-25, by running the suite — not by reading this file. This row
-replaced "Not started", which was written before the module was and had become
-the kind of line the header above warns about: the next session trusts it.*
+*Counted 2026-10-04 by running the suite, not by reading this file.*
 
-> **What has NOT been done is the audit.** Nobody has walked M13's functional
-> requirements one at a time and checked each against the code. A green suite
-> says the tests that exist pass; it does not say which requirements have tests.
-> M01 learned that the expensive way — its FR table read 98% complete while the
-> §13 KPI had no numerator, the semantic tier was absent and ten endpoints had
-> no client. Every one of those was invisible from a passing suite.
->
-> The next session on M13 should start there, and write what it finds here.
-| Spec | Written — see the link above |
-
-_Fill this in when work on M13 begins: tests passing, gates, FR coverage,
-and what is actually blocking._
+> **Re-checked 2026-10-04:** the ledger gap the 2026-08-28 audit found is
+> closed. Since 2026-09-23 `delivery.py`'s sweeper (on `ai_core.outbox`)
+> delivers both channels — M04's observations and M02's coverage — on an
+> interval and on every new evaluation. `POST /v1/outbox/drain` is the
+> operator's safety net now, not the mechanism.
 
 ---
 
 ## 2. Next
 
-_To fill in._ The spec's §4 functional requirements and §13 acceptance
-gates are the natural first pass — copy them in as a checklist, then mark what
-already exists.
+1. **A test for the human-rating queue** — the last partial requirement.
+2. **Walk the §13 acceptance gates** one at a time and write what each needs here.
+3. M19's ledger channel and its backfill, when M19 exists (see `delivery.py`).
 
 ---
 

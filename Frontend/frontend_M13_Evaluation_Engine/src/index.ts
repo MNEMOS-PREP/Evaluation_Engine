@@ -15,9 +15,12 @@ export { Judgement, GATE_NOTE } from "./components/Judgement";
 export { Transcript, segment } from "./components/Transcript";
 export {
   useCalibration,
+  // An administrator's first page counts open disputes and a stuck outbox.
+  useDisputeQueue,
   useEvaluation,
   useEvidence,
   useOutbound,
+  useOutbox,
   useRubric,
   useRubrics,
 } from "./api";

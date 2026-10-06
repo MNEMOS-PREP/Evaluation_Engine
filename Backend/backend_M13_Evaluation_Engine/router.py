@@ -96,6 +96,9 @@ class EvaluateRequest(BaseModel):
     ensemble: str = N1_PRACTICE.name
     #: Set when re-scoring: the evaluation this one replaces (§6.8).
     supersedes: uuid.UUID | None = None
+    #: M11's FR-11.15: ranges of `answer_text` the speech recogniser was
+    #: unsure of. Read and scored; never quoted as evidence.
+    uncitable: list[tuple[int, int]] = Field(default_factory=list, max_length=40)
 
 
 class DisputeRequest(BaseModel):
@@ -265,6 +268,7 @@ def create_evaluation(
         hint_level_used=request.hint_level_used,
         consent_id=request.consent_id,
         round_type=request.round_type,
+        uncitable=list(request.uncitable),
     )
     # Frozen HERE rather than inside `evaluate_turn`, so the bytes the spans
     # index into are the exact bytes stored beside the evaluation.

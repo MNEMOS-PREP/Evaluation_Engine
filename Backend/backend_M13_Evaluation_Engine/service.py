@@ -20,7 +20,7 @@ measurement each week. Delivery never enters it at all: it arrives as
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 from ai_core.timeutil import utcnow
@@ -68,6 +68,8 @@ class TurnInput:
     hint_level_used: int = 0
     consent_id: UUID | None = None
     round_type: str | None = None
+    #: Ranges of `answer_text` M11's recogniser was unsure of (FR-11.15).
+    uncitable: list[tuple[int, int]] = field(default_factory=list)
 
 
 def freeze_artifacts(turn: TurnInput) -> ArtifactSet:
@@ -81,6 +83,8 @@ def freeze_artifacts(turn: TurnInput) -> ArtifactSet:
         artifacts.append(Artifact(artifact_id=uuid4(), artifact_type="canvas", text=turn.canvas))
     frozen = ArtifactSet.freeze(artifacts)
     frozen.detect_and_mark_injection()
+    if turn.uncitable:
+        frozen.uncitable[turn.turn_id] = [(int(a), int(b)) for a, b in turn.uncitable]
     return frozen
 
 

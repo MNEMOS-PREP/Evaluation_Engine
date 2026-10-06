@@ -105,6 +105,11 @@ class ArtifactSet:
     #: one of these is rejected: the evaluator was shown a block, so a quote
     #: from inside it is a quote of our own marker.
     neutralised: dict[UUID, list[tuple[int, int]]] = field(default_factory=dict)
+    #: Ranges per artifact the speech recogniser was unsure of (M11's
+    #: FR-11.15). The evaluator READS them — the words still count — but a
+    #: span overlapping one is not stored: a quote of words nobody is sure
+    #: were said is not evidence of what the student said.
+    uncitable: dict[UUID, list[tuple[int, int]]] = field(default_factory=dict)
 
     @classmethod
     def freeze(cls, artifacts: list[Artifact]) -> ArtifactSet:
@@ -146,6 +151,12 @@ class ArtifactSet:
         return any(
             start < r_end and end > r_start
             for r_start, r_end in self.neutralised.get(artifact_id, [])
+        )
+
+    def overlaps_uncitable(self, artifact_id: UUID, start: int, end: int) -> bool:
+        return any(
+            start < r_end and end > r_start
+            for r_start, r_end in self.uncitable.get(artifact_id, [])
         )
 
 
@@ -348,6 +359,11 @@ def verify_and_build(
     if artifacts.overlaps_neutralised(span.artifact_id, span.start, span.end):
         return None, SpanVerification(
             ok=False, reason="span overlaps a neutralised (injected) range"
+        )
+
+    if artifacts.overlaps_uncitable(span.artifact_id, span.start, span.end):
+        return None, SpanVerification(
+            ok=False, reason="span quotes words the speech recogniser was unsure of"
         )
 
     ref = EvidenceRef(

@@ -115,11 +115,30 @@ def _parse_created(value: object) -> datetime:
     return utcnow()
 
 
+def parse_rubrics(raw: dict, *, source: str = "<dict>") -> list[Rubric]:
+    """One rubric per round type the document is for (2026-10-07).
+
+    A document names one `round_type`, or several in `round_types` — the
+    technical tracks (OS, DBMS, networks, OOP, ML...) are scored on the same
+    dimensions, and eight copies of one file would drift. Each round type
+    still gets its own rubric, and its own id."""
+    many = raw.get("round_types")
+    if many is None:
+        return [parse_rubric(raw, source=source)]
+    if not isinstance(many, list) or not many:
+        raise RubricError(f"{source}: round_types must be a non-empty list")
+    return [parse_rubric({**raw, "round_type": rt}, source=source) for rt in many]
+
+
 def load_rubric_file(path: Path) -> Rubric:
+    return load_rubric_files(path)[0]
+
+
+def load_rubric_files(path: Path) -> list[Rubric]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise RubricError(f"{path.name}: expected a mapping at the top level")
-    return parse_rubric(raw, source=path.name)
+    return parse_rubrics(raw, source=path.name)
 
 
 @lru_cache(maxsize=1)
@@ -133,13 +152,13 @@ def load_all(directory: str | None = None) -> dict[str, Rubric]:
     folder = Path(directory) if directory else RUBRIC_DIR
     rubrics: dict[str, Rubric] = {}
     for path in sorted(folder.glob("*.yaml")):
-        rubric = load_rubric_file(path)
-        if rubric.round_type in rubrics:
-            raise RubricError(
-                f"{path.name}: duplicate round_type '{rubric.round_type}' "
-                f"(already loaded from another file)"
-            )
-        rubrics[rubric.round_type] = rubric
+        for rubric in load_rubric_files(path):
+            if rubric.round_type in rubrics:
+                raise RubricError(
+                    f"{path.name}: duplicate round_type '{rubric.round_type}' "
+                    f"(already loaded from another file)"
+                )
+            rubrics[rubric.round_type] = rubric
     log.info("loaded %d rubric(s): %s", len(rubrics), ", ".join(sorted(rubrics)))
     return rubrics
 

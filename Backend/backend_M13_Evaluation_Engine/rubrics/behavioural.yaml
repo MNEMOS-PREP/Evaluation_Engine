@@ -1,0 +1,96 @@
+# M13 §6.1 — HR and behavioural, spoken (2026-10-07).
+#
+# "Tell me about a time..." There is no right answer to compare against: the
+# candidate's own experience is the content. What a panel listens for is the
+# shape of the story, whether it is specific and theirs, and whether they
+# took anything from it.
+#
+# The concept-bearing dimension is `structure`, and it is communication-domain:
+# the concepts these questions practise (answer structuring, summarising,
+# explaining trade-offs) are M04's communication concepts, so emit's
+# communication route is the one that carries it (§6.4 step 8). Nothing here
+# can move a technical concept.
+#
+# NEVER scores accent, fluency, grammar, or language choice (EC-13.6), nor the
+# story's subject — a college fest counts as much as an internship.
+#
+# EVERY ANCHOR DESCRIBES OBSERVABLE BEHAVIOUR, NOT A QUALITY ADJECTIVE (§6.6).
+
+round_type: behavioural
+version: "1.0.0"
+created_at: "2026-10-07T00:00:00+00:00"
+
+hint_penalty:
+  0: 1.00
+  1: 0.95
+  2: 0.85
+  3: 0.70
+  4: 0.50
+  5: 0.30
+
+dimensions:
+  - key: structure
+    name: Structure of the story
+    concept_bearing: true          # exactly one per rubric (FR-13.22)
+    concept_domain: communication
+    weight: 0.40
+    description: >
+      Does the answer give the situation, what the candidate did, and how it
+      turned out, in an order a listener can follow? STAR is one way to do it,
+      not the only one; any order that lets the listener reconstruct those
+      three counts.
+    anchors:
+      0: "No story — a general statement about themselves, or no answer."
+      1: "A situation is described but what the candidate did, or how it ended,
+          is missing."
+      2: "All three are there, but out of order or tangled, so the listener has
+          to piece them together."
+      3: "Situation, action and outcome in a followable order, with some
+          padding or backtracking."
+      4: "Sets the situation in a sentence or two, spends most of the answer on
+          what they did, and ends on the outcome. Nothing the listener has to
+          untangle."
+
+  - key: ownership
+    name: Specifics and ownership
+    concept_domain: technical      # a score the student reads; feeds no concept
+    weight: 0.35
+    description: >
+      Is it one real occasion, told with specifics, and is it clear what the
+      candidate did as opposed to what the team did?
+    anchors:
+      0: "Hypothetical ('I would...') or so general it could be anyone's."
+      1: "A real occasion, but every action is 'we'; the candidate's own part
+          cannot be told apart."
+      2: "The candidate's part is stated but without specifics — what was done,
+          to whom, or when is left vague."
+      3: "Specific about what they did and why, with one concrete detail (a
+          number, a decision, a person)."
+      4: "Specific about their own decisions and why, including one they
+          weighed against an alternative, and the outcome is concrete
+          (measured, or plainly observable)."
+
+  - key: reflection
+    name: Reflection
+    concept_domain: technical      # a score the student reads; feeds no concept
+    weight: 0.25
+    description: >
+      Does the candidate say what they took from it — what they would keep,
+      or do differently? A story that went badly and is reflected on honestly
+      scores higher than a success with nothing learned.
+    anchors:
+      0: "No reflection, or asked for it and declines."
+      1: "A stock line with no link to the story. ('I learned teamwork is
+          important.')"
+      2: "A lesson tied to the story, but only stated, not explained."
+      3: "A lesson tied to the story, with what they would do differently or
+          have done since."
+      4: "A lesson tied to the story, what changed in how they work, and a later
+          occasion where they applied it."
+
+disqualifiers:
+  - key: inconsistent_story
+    description: >
+      The story contradicts itself, or contradicts what the candidate said
+      earlier in the interview, in a way that matters to the answer.
+    feeds: report_note

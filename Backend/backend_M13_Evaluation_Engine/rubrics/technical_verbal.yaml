@@ -1,0 +1,115 @@
+# M13 §6.1 — the core-CS and ML tracks, spoken (2026-10-07).
+#
+# One document, seven round types. Operating systems, databases, networks,
+# OOP, systems, machine learning and deep learning are all scored on the same
+# three things: is what they said right, do they know why, and could a peer
+# follow it. Seven copies of one file would drift; `round_types` registers
+# this rubric under each, and each still gets its own id.
+#
+# The DSA rubric stays separate: its anchors talk about an approach solving a
+# stated problem within constraints, which is what a DSA question asks. These
+# tracks mostly ask the candidate to explain a mechanism or weigh a choice.
+#
+# EVERY ANCHOR DESCRIBES OBSERVABLE BEHAVIOUR, NOT A QUALITY ADJECTIVE (§6.6).
+
+round_types:
+  - os_verbal
+  - dbms_verbal
+  - cn_verbal
+  - oop_verbal
+  - systems_verbal
+  - ml_verbal
+  - dl_verbal
+version: "1.0.0"
+created_at: "2026-10-07T00:00:00+00:00"
+
+# The same published deduction as DSA (master plan §32.5), applied once, here.
+hint_penalty:
+  0: 1.00
+  1: 0.95
+  2: 0.85
+  3: 0.70
+  4: 0.50
+  5: 0.30
+
+dimensions:
+  # ── The one that becomes mastery ────────────────────────────────────────
+  - key: correctness
+    name: Correctness of the answer
+    concept_bearing: true          # exactly one per rubric (FR-13.22)
+    concept_domain: technical
+    weight: 0.40
+    description: >
+      Is what the candidate said true, and does it answer the question that
+      was asked? Judged on the substance, not on whether it matches the
+      reference answer's wording — a correct answer reached another way is
+      correct.
+    anchors:
+      0: "No answer offered, or the answer is about something else, or what is
+          claimed is wrong at its core (e.g. says TCP has no ordering)."
+      1: "Names the right idea but what is said about it is wrong or would not
+          work as described."
+      2: "Right for the usual case, but a stated condition or a well-known case
+          makes it wrong and the candidate does not notice (e.g. says an index
+          always speeds up a query)."
+      3: "Right, including the conditions the question gave. Any figure or
+          guarantee claimed is accurate, or none is claimed."
+      4: "Right, covers the conditions and the cases where the answer changes,
+          and any guarantee claimed is justified from the mechanism."
+
+  # ── Depth of understanding ──────────────────────────────────────────────
+  - key: depth
+    name: Depth of understanding
+    concept_domain: technical
+    weight: 0.35
+    description: >
+      Does the candidate explain the mechanism behind the answer, or only
+      recite its name and result? Separates a memorised definition from an
+      understood one.
+    anchors:
+      0: "No explanation attempted, or the explanation is incoherent."
+      1: "Recites a definition or a result with no reason. ('Paging avoids
+          fragmentation.')"
+      2: "Gives a reason but not a mechanism, and cannot go a level deeper when
+          asked. ('Dropout works because it regularises.')"
+      3: "Explains the mechanism correctly but misses an important limit, cost
+          or trade-off."
+      4: "Explains the mechanism, what it costs, where it stops working, and
+          when another choice would be better."
+
+  # ── How it was said ─────────────────────────────────────────────────────
+  # concept_domain: communication — §6.4 step 8 routes this to communication
+  # concepts and NEVER to a technical one.
+  - key: communication
+    name: Clarity of explanation
+    concept_domain: communication
+    weight: 0.25
+    description: >
+      Could a competent peer follow the reasoning from the explanation alone?
+      Scores structure and signposting. NEVER scores accent, fluency, grammar,
+      or language choice — an answer in Hindi or Hinglish is scored on content
+      exactly like any other (EC-13.6).
+    anchors:
+      0: "The explanation cannot be followed; no discernible order."
+      1: "Jumps between ideas without connecting them; the listener has to
+          reconstruct the order themselves."
+      2: "A followable sequence, but key steps are implied rather than stated,
+          or terms are used before they are introduced."
+      3: "Clear order, gives the answer before the detail, defines the terms it
+          uses. Some redundancy or backtracking."
+      4: "Gives the answer, then the mechanism, then the trade-offs, with no
+          backtracking. A peer could teach it from the explanation alone."
+
+# Flags with evidence, never arithmetic (§15.5).
+disqualifiers:
+  - key: fabricated_api
+    description: >
+      Cites a named library, system call, protocol, command or model that does
+      not exist, and relies on it for the answer to work.
+    feeds: both
+  - key: fabricated_guarantee
+    description: >
+      States a guarantee or a result as a general law when it is false
+      (e.g. "UDP packets always arrive in order", "more layers always
+      reduce error").
+    feeds: report_note

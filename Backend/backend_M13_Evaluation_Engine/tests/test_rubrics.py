@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from backend_M13_Evaluation_Engine.contracts import AppliesWhen, RubricDimension
-from backend_M13_Evaluation_Engine.rubrics import RubricError, parse_rubric
+from backend_M13_Evaluation_Engine.rubrics import RubricError, load_all, parse_rubric, parse_rubrics
 
 BASE = {
     "round_type": "test_round",
@@ -187,3 +187,39 @@ def test_dimension_weight_must_be_positive():
             anchors={i: "x" for i in range(5)},
             weight=0,
         )
+
+
+# ── one document, several round types (2026-10-07) ───────────────────────
+
+
+def test_one_document_registers_a_rubric_under_each_round_type():
+    raw = {k: v for k, v in BASE.items() if k != "round_type"}
+    many = parse_rubrics({**raw, "round_types": ["os_verbal", "ml_verbal"]}, source="t")
+    assert [r.round_type for r in many] == ["os_verbal", "ml_verbal"]
+    assert many[0].id != many[1].id, "each round type keeps its own rubric id"
+
+
+def test_an_empty_round_types_list_fails_to_load():
+    with pytest.raises(RubricError, match="round_types"):
+        parse_rubrics({**BASE, "round_types": []}, source="t")
+
+
+def test_every_track_m05_offers_has_a_rubric():
+    """A track a student can pick and nothing can score is a promise with
+    nothing behind it. M05's `bank/tracks.yaml` names them; this is the list
+    as of 2026-10-07."""
+    loaded = load_all()
+    for round_type in (
+        "dsa_verbal", "os_verbal", "dbms_verbal", "cn_verbal", "oop_verbal",
+        "systems_verbal", "ml_verbal", "dl_verbal", "behavioural",
+    ):
+        assert round_type in loaded, round_type
+
+
+def test_behavioural_can_move_only_communication_concepts():
+    rubric = load_all()["behavioural"]
+    bearing = rubric.dimension(rubric.concept_bearing_key)
+    assert bearing.concept_domain == "communication"
+    assert all(
+        d.concept_domain == "technical" for d in rubric.dimensions if d is not bearing
+    ), "the other two are scores the student reads, routed to no concept"

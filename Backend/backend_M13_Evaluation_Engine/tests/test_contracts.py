@@ -276,3 +276,27 @@ def test_outbound_degrades_loudly_without_consent(scored):
     # The ledger and coverage rows still go: they are not personal-data writes
     # into a durable belief, and losing them would lose the report too.
     assert payload["ledger"] and payload["coverage"]
+
+
+def test_a_behavioural_answer_moves_each_communication_concept_once(scored):
+    """Behavioural's concept-bearing dimension is communication-domain
+    (2026-10-07), so it travels emit's communication route — once per
+    concept, not once as the bearing dimension and again as communication."""
+    from backend_M13_Evaluation_Engine.rubrics import load_all
+
+    evaluation, _, package = scored
+    rename = {"correctness": "structure", "depth": "ownership", "communication": "reflection"}
+    evaluation = evaluation.model_copy(
+        update={
+            "aggregated": [
+                s.model_copy(update={"dimension_key": rename[s.dimension_key]})
+                for s in evaluation.aggregated
+            ]
+        }
+    )
+    package = replace(package, concepts={c: 1.0 for c in COMMS})
+    observations = emit.observations_for(
+        evaluation, load_all()["behavioural"], package, communication_concepts=COMMS
+    )
+    assert sorted(o.concept_id for o in observations) == sorted(COMMS)
+    assert {o.source_dimension_key for o in observations} == {"structure"}

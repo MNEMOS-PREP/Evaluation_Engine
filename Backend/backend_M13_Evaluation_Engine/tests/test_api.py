@@ -63,8 +63,10 @@ def test_evaluation_is_reported_unavailable_without_a_key(client):
 
 def test_rubric_listing(client):
     body = client.get("/v1/rubrics").json()
-    assert body["rubrics"][0]["round_type"] == "dsa_verbal"
-    assert body["rubrics"][0]["concept_bearing"] == "correctness"
+    listed = {r["round_type"]: r for r in body["rubrics"]}
+    assert listed["dsa_verbal"]["concept_bearing"] == "correctness"
+    # Every track M05 can offer (bank/tracks.yaml) has something to score it.
+    assert {"os_verbal", "ml_verbal", "dl_verbal", "behavioural"} <= set(listed)
 
 
 def test_rubric_detail_and_404(client):

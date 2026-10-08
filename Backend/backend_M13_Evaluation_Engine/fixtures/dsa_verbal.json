@@ -20,7 +20,7 @@
       "stem": "Given an array of integers and a target, return the indices of the two numbers that add up to the target. Talk me through your approach.",
       "reference_answer": "Walk the array once, keeping a hash map from value to index. For each element x at index i, look up target - x in the map; if it is there, return that index and i. Otherwise store x -> i and continue. One pass, O(n) time and O(n) space. The map lookup is average O(1) because the key is hashed to a bucket; worst case is O(n) per lookup if every key collides, which is why the average-case claim needs the hash function to distribute well.",
       "concepts": {
-        "concept:hash_maps": 1.0,
+        "concept:hashing": 1.0,
         "concept:arrays": 0.4
       },
       "key_points": [
@@ -62,7 +62,7 @@
       "stem": "Why is hash map lookup O(1)?",
       "reference_answer": "The key is passed through a hash function that maps it to a bucket index, so finding the bucket is a constant-time computation rather than a search. Within a bucket you still compare keys, so the constant-time claim holds only while buckets stay short — which requires a good hash function and a bounded load factor, with resizing when it is exceeded. If every key collides into one bucket the lookup degrades to O(n), so O(1) is the average case, not a guarantee.",
       "concepts": {
-        "concept:hash_maps": 1.0
+        "concept:hashing": 1.0
       },
       "key_points": [
         {

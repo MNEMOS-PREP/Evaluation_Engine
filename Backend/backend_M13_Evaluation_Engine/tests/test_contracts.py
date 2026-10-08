@@ -69,7 +69,7 @@ def test_observation_id_is_stable_and_keyed_as_m04_keys_it():
     args = dict(
         turn_id=turn_id,
         session_id=session_id,
-        concept_id="concept:hash_maps",
+        concept_id="concept:hashing",
         kind="answer_scored",
         rubric_version="1.0.0",
     )
@@ -300,3 +300,26 @@ def test_a_behavioural_answer_moves_each_communication_concept_once(scored):
     )
     assert sorted(o.concept_id for o in observations) == sorted(COMMS)
     assert {o.source_dimension_key for o in observations} == {"structure"}
+
+
+def test_the_fixture_bank_names_only_concepts_m04_knows():
+    """M04 rejects an observation for a concept outside its ontology, and the
+    rejection sat in the outbox as 'stuck' on the staff Today (2026-10-08):
+    the fixture bank said `concept:hash_maps`, the ontology `concept:hashing`.
+    Read when M04's ontology is checked out beside this repo."""
+    from pathlib import Path
+
+    import yaml
+
+    for parent in Path(__file__).resolve().parents:
+        ontology = parent / "Memory" / "packages" / "knowledge" / "ontology" / "concepts.yaml"
+        if ontology.exists():
+            break
+    else:
+        pytest.skip("M04's ontology is not checked out beside this repo")
+    known = {c["id"] for c in yaml.safe_load(ontology.read_text(encoding="utf-8"))["concepts"]}
+    fixtures = Path(__file__).resolve().parents[1] / "fixtures"
+    for path in fixtures.glob("*.json"):
+        text = path.read_text(encoding="utf-8")
+        named = {word for word in text.split('"') if word.startswith("concept:")}
+        assert named <= known, (path.name, sorted(named - known))

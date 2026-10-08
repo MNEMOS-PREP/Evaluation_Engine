@@ -36,7 +36,9 @@ export function DepsPage() {
         <Panel className="px-4 py-3">
           <Rows>
             <Field label="status">{health.data?.status ?? "unreachable"}</Field>
-            <Field label="rubric set">{health.data?.rubric_set_version ?? "—"}</Field>
+            <Field label="rubric set">
+              <span className="break-all">{health.data?.rubric_set_version ?? "—"}</span>
+            </Field>
             <Field label="calibration">{health.data?.calibration_version ?? "—"}</Field>
             {/* From the platform registry rather than from this module's own
                 opinion of itself — the two disagreeing is worth seeing. */}

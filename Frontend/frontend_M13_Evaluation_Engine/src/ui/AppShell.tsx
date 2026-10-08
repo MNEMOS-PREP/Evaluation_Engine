@@ -150,8 +150,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Pill>
             )}
             {health.data && (
-              <span className="provenance hidden lg:inline">
-                rubrics {health.data.rubric_set_version} · calibration{" "}
+              <span
+                className="provenance hidden lg:inline"
+                title={`rubrics ${health.data.rubric_set_version}`}
+              >
+                {/* A count, not the set: nine rubrics made the set a line
+                    longer than the bar (2026-10-08). The set is the title. */}
+                {health.data.rubric_set_version.split("+").length} rubrics · calibration{" "}
                 {health.data.calibration_version}
               </span>
             )}

@@ -28,7 +28,7 @@ export function RubricsPage() {
     <>
       <header className="mb-8">
         <h1 className="text-title font-semibold text-ink">Rubrics</h1>
-        <p className="provenance mt-1">rubric set {list.data?.rubric_set_version}</p>
+        <p className="provenance mt-1 break-all">rubric set {list.data?.rubric_set_version}</p>
       </header>
 
       <div className="mb-6 flex flex-wrap gap-1.5">
@@ -68,7 +68,7 @@ export function RubricsPage() {
                       </p>
                       <p className="mt-0.5 text-sm text-ink-soft">{dimension.description}</p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       {dimension.concept_bearing && (
                         <Pill tone="brand" title="This dimension's score becomes mastery in M04.">
                           concept-bearing

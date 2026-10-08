@@ -18,6 +18,22 @@ Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 
 Legend: ✅ done · 🟡 partly done · ⬜ not started
 
+### 2026-10-07/08 — a rubric for every track; the concept the ontology calls hashing
+
+- ✅ **Rubrics for every track M05 offers** (`fcbabcc`): a rubric document may
+  list `round_types`, and `technical_verbal.yaml` registers one rubric (what
+  they said is right, they know why, a peer could follow it) under the seven
+  core-CS and ML tracks, each with its own id; `behavioural.yaml` scores HR
+  rounds. DSA keeps its own anchors.
+- ✅ **The fixture bank said `concept:hash_maps`; M04's ontology says
+  `concept:hashing`** (`ec159d3`). Every observation from the fallback bank
+  was refused as an unknown concept and sat in the outbox — 8 of the 14 rows
+  the staff Today page showed as stuck. A test now reads M04's ontology beside
+  this repo and checks every fixture concept is in it.
+  ⬜ **The 14 rows already refused need an operator to void them** — staff
+  action, not code.
+- ✅ The rubrics page fits a phone with nine rubrics (`bd52acc`).
+
 ### 2026-10-04 — the evidence page talks to a student
 
 - ✅ **The lexical fallback stops calling paraphrased key points missing.** With

@@ -76,8 +76,13 @@ export function OutboundPage() {
           <p className="text-sm text-ink-soft">None — see above.</p>
         ) : (
           <div className="space-y-3">
-            {data.m04_observations.map((observation) => (
-              <Panel key={observation.id} className="px-4 py-3">
+            {data.m04_observations.map((observation, i) => (
+              // An observation not yet sent has no id (null from the API),
+              // and a null key warned on every render of this page.
+              <Panel
+                key={observation.id ?? `${observation.concept_id}:${observation.source_dimension_key}:${i}`}
+                className="px-4 py-3"
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-sm font-medium text-ink">{observation.concept_id}</p>
                   <div className="flex items-center gap-1.5">

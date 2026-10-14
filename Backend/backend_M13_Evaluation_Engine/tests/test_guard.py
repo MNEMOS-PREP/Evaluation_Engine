@@ -146,3 +146,33 @@ def test_who_resolved_a_dispute_is_who_was_signed_in(bare, cases, session):
     session.expire_all()
     row = session.get(Dispute, uuid.UUID(opened["dispute_id"]))
     assert row.resolved_by == "ops-ana"
+
+
+REVIEWER = {"X-Role": "reviewer", "X-Candidate-Id": "faculty-7"}
+
+
+def test_a_reviewer_rates_as_themselves_and_reaches_nothing_else(bare, session):
+    """The calibration study needs at least three raters; an administrator
+    cannot be three. A reviewer may rate, the RATER facet is who was signed in
+    (a body naming someone else is not believed), and nothing else opens."""
+    from backend_M13_Evaluation_Engine.models import HumanRating
+
+    body = {
+        "turn_id": str(uuid.uuid4()),
+        "question_id": str(uuid.uuid4()),
+        "candidate_id": str(uuid.uuid4()),
+        "rater_id": "someone-else",
+        "dimension_key": "technical_accuracy",
+        "round_type": "dsa_verbal",
+        "rubric_version": "1",
+        "score": 3,
+    }
+    ok = bare.post("/v1/human-ratings", json=body, headers=REVIEWER)
+    assert ok.status_code == 200, ok.text
+    row = session.get(HumanRating, uuid.UUID(ok.json()["id"]))
+    assert row is not None and row.rater_id == "faculty-7"
+
+    assert bare.get("/v1/disputes/queue", headers=REVIEWER).status_code == 403
+    assert bare.post("/v1/outbox/requeue", headers=REVIEWER).status_code == 403
+    student = bare.post("/v1/human-ratings", json=body, headers=identity_headers(uuid.uuid4()))
+    assert student.status_code == 403

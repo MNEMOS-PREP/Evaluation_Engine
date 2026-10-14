@@ -74,6 +74,11 @@ router = APIRouter(prefix="/v1", tags=["evaluation"], dependencies=[Depends(enfo
 #: Administrators only — a placement officer has no part in how M13 scores.
 operator_only = require_role(Role.admin)
 
+#: The two rating routes only. The calibration study needs at least three raters
+#: and an administrator cannot be three people: reviewers (faculty, seniors) may
+#: rate answers and nothing else here — not the outbox, not disputes.
+rater_access = require_role(Role.admin, Role.reviewer)
+
 
 class EvaluateRequest(BaseModel):
     """What M6 posts when a turn finishes. Async in production (FR-13.19)."""
@@ -570,19 +575,29 @@ def resolve(
 # ── the calibration study (§6.6) ─────────────────────────────────────────
 
 
-@router.post("/human-ratings", dependencies=[Depends(operator_only)])
-def submit_rating(request: RatingRequest, session: Session = Depends(get_session)) -> dict:
-    row = HumanRating(**request.model_dump())
+@router.post("/human-ratings")
+def submit_rating(
+    request: RatingRequest,
+    session: Session = Depends(get_session),
+    rater: Principal = Depends(rater_access),
+) -> dict:
+    data = request.model_dump()
+    if rater.role is Role.reviewer:
+        # The RATER facet is what the agreement analysis is built on. A reviewer
+        # rates as themselves; a body that names someone else is not believed.
+        data["rater_id"] = rater.subject
+    row = HumanRating(**data)
     session.add(row)
     session.commit()
     return {"id": str(row.id)}
 
 
-@router.get("/human-ratings/queue", dependencies=[Depends(operator_only)])
+@router.get("/human-ratings/queue")
 def rating_queue(
     rater_id: str = Query(...),
     limit: int = Query(20, le=100),
     session: Session = Depends(get_session),
+    rater: Principal = Depends(rater_access),
 ) -> dict:
     """Turns this rater has not yet rated.
 
@@ -590,6 +605,8 @@ def rating_queue(
     (§6.6, AC-13.15) — that lives in the workbench surface, not here, and this
     endpoint deliberately returns ids rather than content until it does.
     """
+    if rater.role is Role.reviewer:
+        rater_id = rater.subject
     rated = {
         r.turn_id
         for r in session.exec(select(HumanRating).where(HumanRating.rater_id == rater_id)).all()

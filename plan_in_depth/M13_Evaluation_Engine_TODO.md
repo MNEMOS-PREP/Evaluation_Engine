@@ -3,7 +3,7 @@
 
 > **Completion: 98%** — 20 of 21 functional requirements met, 1 partially. Every requirement has shipped code. The one incomplete: the human-rating queue has no test. The M02 ledger write the 2026-08-28 audit found **built but never sent** has been delivered since 2026-09-23 — `delivery.py`'s sweeper, on `ai_core.outbox`, sends both channels (M04's observations, M02's coverage) on an interval and on every new evaluation. FR-13.21 degrades rather than blocks, because M12 is `required: false`.
 >
-> _Method: `(met + ½ × partial) ÷ total`, audited against shipped code, 2026-08-28; re-checked 2026-10-04: the ledger gap is closed (95% → 98%). One measure applied the same way to all nineteen modules so they compare; it counts requirements, not screens or gates._
+> _Method: `(met + ½ × partial) ÷ total`, audited against shipped code, 2026-08-28; re-checked 2026-10-04: the ledger gap is closed (95% → 98%); re-checked 2026-10-17: unchanged — reviewers can now rate, and the raters' queue still has no test of its own. One measure applied the same way to all nineteen modules so they compare; it counts requirements, not screens or gates._
 
 Running list for **M13 Evaluation Engine**.
 Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
@@ -17,6 +17,28 @@ Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 - **Repo:** `Evaluation_Engine`
 
 Legend: ✅ done · 🟡 partly done · ⬜ not started
+
+### 2026-10-13/16 — reviewers rate, and words the officers can trust
+
+- ✅ **A reviewer submits human ratings as themselves** (`e816846`, abhinav):
+  the `reviewer` role may post a rating, the rater is pinned to the signed-in
+  subject rather than the body's, and the role reaches nothing else
+  (`test_a_reviewer_rates_as_themselves_and_reaches_nothing_else`). The
+  raters' queue itself still has no test, so the header's one partial stands.
+- ✅ **Platform_Core v0.38.0** (`8188e07`): the rating routes read
+  `Role.reviewer`, which the pinned v0.12.0 lacked, so M13 failed to start.
+- ✅ **The bench and rubric pages say what is true** (`e48f167`): the bench
+  promised that with M05 running its questions would come from the live bank,
+  but it only ever reads the fixture set, and now says so. "So M04 does not
+  deduct again" names the skill graph, and the disqualifier note no longer
+  routes to M18's fabrication probe, which does not exist.
+- ✅ The outbound page has a key for an observation not yet sent (`41c6041`);
+  the dispute dialog's backdrop fades in and its panel rises (`95430b2`).
+- ⬜ **AC-13.15 [GATE] — de-identification before any peer rates an answer.**
+  The workbench must serve pseudonymised transcripts (and transformed audio)
+  to peer raters. Until it does, a reviewer can rate but the workbench cannot
+  show them the answer, so the human-agreement metric cannot start. Cheap now
+  and impossible to retrofit once ratings exist against raw answers (§6.6).
 
 ### 2026-10-07/08 — a rubric for every track; the concept the ontology calls hashing
 
@@ -154,12 +176,12 @@ _Nothing scouted for this module yet._
 
 | | |
 |---|---|
-| Status | **Built.** FR coverage was audited on 2026-08-28 and re-checked on 2026-10-04 (the header). The per-requirement table was never written into this file, and the §13 acceptance gates have not been walked one by one |
-| Backend tests passing | **172** |
+| Status | **Built.** FR coverage was audited on 2026-08-28 and re-checked on 2026-10-04 and 2026-10-17 (the header). The per-requirement table was never written into this file, and the §13 acceptance gates have not been walked one by one |
+| Backend tests passing | **180** |
 | Release gates (`-m gate`) | **31** |
 | Frontend | the operator's console standalone; in the shell, the student's "How your answer was marked" page and the staff queues |
 
-*Counted 2026-10-04 by running the suite, not by reading this file.*
+*Counted 2026-10-17 by running the suite, not by reading this file.*
 
 > **Re-checked 2026-10-04:** the ledger gap the 2026-08-28 audit found is
 > closed. Since 2026-09-23 `delivery.py`'s sweeper (on `ai_core.outbox`)
@@ -172,8 +194,9 @@ _Nothing scouted for this module yet._
 ## 2. Next
 
 1. **A test for the human-rating queue** — the last partial requirement.
-2. **Walk the §13 acceptance gates** one at a time and write what each needs here.
-3. M19's ledger channel and its backfill, when M19 exists (see `delivery.py`).
+2. **AC-13.15, de-identification for peer raters** — the gate the human-agreement metric waits on (see 2026-10-13/16 above).
+3. **Walk the §13 acceptance gates** one at a time and write what each needs here.
+4. M19's ledger channel and its backfill, when M19 exists (see `delivery.py`).
 
 ---
 

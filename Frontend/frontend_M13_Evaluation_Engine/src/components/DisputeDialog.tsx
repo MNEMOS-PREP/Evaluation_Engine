@@ -54,7 +54,7 @@ export function DisputeDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 px-4 pt-[10vh] backdrop-blur-[2px]"
+      className="scrim-in fixed inset-0 z-50 flex items-start justify-center bg-ink/40 px-4 pt-[10vh] backdrop-blur-[2px]"
       role="presentation"
       onClick={onClose}
     >
@@ -64,7 +64,7 @@ export function DisputeDialog({
         aria-modal="true"
         aria-label="Report a problem with this score"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-lg"
+        className="dialog-in w-full max-w-lg"
       >
         <Panel className="shadow-raised">
           {dispute.data ? (

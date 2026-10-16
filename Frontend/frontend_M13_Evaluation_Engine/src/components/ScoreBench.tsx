@@ -48,9 +48,9 @@ export function ScoreBench() {
       <header className="mb-8">
         <h1 className="text-title font-semibold text-ink">Score an answer</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-soft">
-          The question bank here is the committed fixture set. When M05 Question Intelligence is
-          running, questions come from the live item bank instead and the answers become eligible
-          to move an ability estimate — nothing else on this page changes.
+          Pick one of the sample questions, paste an answer, and see how the scorer marks it and
+          why. The samples are a fixed practice set, kept apart from the questions students are
+          asked.
         </p>
       </header>
 
@@ -145,7 +145,8 @@ export function ScoreBench() {
                   </div>
                   <p className="flex-1 text-xs text-ink-soft">
                     The credit factor for each level is published in the rubric, not hidden in the
-                    scorer — and it is applied exactly once, here, so M04 does not deduct again.
+                    scorer — and it is applied exactly once, here, so the skill graph does not
+                    deduct it again.
                   </p>
                   <Btn
                     type="submit"

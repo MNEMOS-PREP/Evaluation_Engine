@@ -70,7 +70,7 @@ export function RubricsPage() {
                     </div>
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       {dimension.concept_bearing && (
-                        <Pill tone="brand" title="This dimension's score becomes mastery in M04.">
+                        <Pill tone="brand" title="This dimension's score becomes mastery in the skill graph.">
                           concept-bearing
                         </Pill>
                       )}
@@ -142,8 +142,8 @@ export function RubricsPage() {
               </table>
               <p className="mt-3 border-t border-line pt-2 text-xs text-ink-soft">
                 Published on purpose. More help never credits more — the loader rejects a table
-                that rises — and the deduction is applied exactly once, in M13, so M04 does not
-                apply it again on the way to mastery.
+                that rises — and the deduction is applied exactly once, when the answer is scored,
+                so the skill graph does not apply it again on the way to mastery.
               </p>
             </Panel>
           </Section>
@@ -163,9 +163,8 @@ export function RubricsPage() {
                 <p className="mt-3 border-t border-line pt-2 text-xs text-ink-soft">
                   There is deliberately no penalty field on a disqualifier. A student who
                   misremembers a function name is not one who invented a library, and a model
-                  cannot reliably tell them apart — so this is reported prominently and routed to
-                  M18's fabrication probe, and there is no arithmetic through which it could zero
-                  a dimension.
+                  cannot reliably tell them apart — so this is reported prominently for a person
+                  to judge, and there is no arithmetic through which it could zero a dimension.
                 </p>
               </Panel>
             </Section>

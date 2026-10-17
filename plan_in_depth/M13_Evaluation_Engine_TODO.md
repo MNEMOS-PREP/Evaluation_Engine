@@ -18,6 +18,17 @@ Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 
 Legend: ✅ done · 🟡 partly done · ⬜ not started
 
+### 2026-10-17 — a decision: two keys, two organizations?
+
+- ⬜ **Key rotation and Groq's policy — the user's call.** `llm.py` takes the
+  next of the two `GROQ_API_KEYS` on every attempt. Measured on 2026-10-17,
+  the keys have **separate quotas** (8,000 tokens/min and 1,000 requests/day
+  each, per model); Groq applies limits per organization, so they are almost
+  certainly two organizations, and Groq's Acceptable Use Policy (effective
+  2025-10-15) forbids "orchestrating usage between multiple organizations" to
+  go beyond rate limits. If so: one key per running platform, headroom from
+  spreading across models and pacing. Recorded in full in M06's TODO.
+
 ### 2026-10-13/16 — reviewers rate, and words the officers can trust
 
 - ✅ **A reviewer submits human ratings as themselves** (`e816846`, abhinav):

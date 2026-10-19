@@ -123,8 +123,10 @@ and never another module's. Take a new one here, then tick it off.
           7882   LiveKit RTC/UDP      one UDP port, not a range
           9010   MinIO S3 API         recordings
           9011   MinIO console
-          9090   Prometheus           scrapes GD's API on 8114
           8314   Grafana              an ops app - see 83xx
+          ----   Prometheus           no host port: Grafana reads it inside
+                                      the compose network (9090 is taken by
+                                      native services on dev machines)
         GD's no-Docker mode (start_gd.bat, the platform's) needs none of these.
 
 

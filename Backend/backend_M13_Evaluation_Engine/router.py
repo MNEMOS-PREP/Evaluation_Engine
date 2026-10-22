@@ -11,6 +11,7 @@ score must never wait on another module answering.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import uuid
 
@@ -104,6 +105,14 @@ class EvaluateRequest(BaseModel):
     #: M11's FR-11.15: ranges of `answer_text` the speech recogniser was
     #: unsure of. Read and scored; never quoted as evidence.
     uncitable: list[tuple[int, int]] = Field(default_factory=list, max_length=40)
+    #: 2026-10-22, from M06: the interviewer's corrective prompts (a
+    #: pushback, a simpler question) that an answer needed before it came
+    #: right — priced like hints, with the rubric's own published credit, so a
+    #: correct answer and one that became correct with help do not score alike.
+    prompts_used: int = Field(default=0, ge=0, le=10)
+    #: 2026-10-22, from M06: the key points of what was actually asked, for a
+    #: question asked one part at a time. Absent means all of them.
+    key_point_ids: list[str] | None = Field(default=None, max_length=40)
 
 
 class DisputeRequest(BaseModel):
@@ -261,6 +270,13 @@ def create_evaluation(
         raise HTTPException(
             status_code=422, detail=f"unknown ensemble '{request.ensemble}'; have {sorted(CONFIGS)}"
         )
+    if request.key_point_ids:
+        # Only what the question asked is what the answer is judged against —
+        # never an empty list, which would judge it against nothing.
+        wanted = set(request.key_point_ids)
+        scoped = [kp for kp in package.key_points if kp.id in wanted]
+        if scoped:
+            package = dataclasses.replace(package, key_points=scoped)
 
     turn = TurnInput(
         turn_id=request.turn_id,
@@ -274,6 +290,7 @@ def create_evaluation(
         consent_id=request.consent_id,
         round_type=request.round_type,
         uncitable=list(request.uncitable),
+        prompts_used=request.prompts_used,
     )
     # Frozen HERE rather than inside `evaluate_turn`, so the bytes the spans
     # index into are the exact bytes stored beside the evaluation.

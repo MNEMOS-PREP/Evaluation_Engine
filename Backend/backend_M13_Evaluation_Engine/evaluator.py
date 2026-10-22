@@ -86,6 +86,13 @@ RULES
 
 6. `reasoning` is read by the student. Say what was present and what was
    missing, in one or two sentences. Do not restate the score.
+
+7. The answer may be SEVERAL answers to the same question, separated by a
+   blank line, given in order as the interviewer followed up. Judge the
+   understanding the candidate demonstrated across all of them. If a later
+   answer corrects an earlier mistake, score the corrected understanding and
+   say in `reasoning` that the first answer was wrong and was corrected. Never
+   quote across the blank line between two answers.
 """
 
 

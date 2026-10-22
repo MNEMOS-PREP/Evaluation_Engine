@@ -27,7 +27,9 @@ from uuid import UUID
 
 from .contracts import SCALE_MAX, SCALE_MIN, Rubric, RubricDimension
 
-PROMPT_VERSION = "m13-eval-1.0.0"
+#: 1.1.0 (2026-10-22): rule 7 — one question's several answers, scored as
+#: the understanding they show together, a correction named as one.
+PROMPT_VERSION = "m13-eval-1.1.0"
 
 
 def _span_schema(artifact_ids: list[UUID]) -> dict:

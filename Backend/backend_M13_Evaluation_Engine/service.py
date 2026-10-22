@@ -70,6 +70,9 @@ class TurnInput:
     round_type: str | None = None
     #: Ranges of `answer_text` M11's recogniser was unsure of (FR-11.15).
     uncitable: list[tuple[int, int]] = field(default_factory=list)
+    #: The interviewer's corrective prompts the answer needed (M06,
+    #: 2026-10-22), priced with the rubric's published hint credit.
+    prompts_used: int = 0
 
 
 def freeze_artifacts(turn: TurnInput) -> ArtifactSet:
@@ -95,7 +98,12 @@ def apply_hint_credit(scores: list[DimensionScore], rubric: Rubric, hint_level: 
     regression suite have to stay comparable across hinted and unhinted
     answers, so the deduction lives only on `credited_score`.
     """
-    factor = rubric.credit(hint_level)
+    # Past the table's last level the last level's price holds: "unlisted
+    # levels credit fully" is right for level 0, and was a refund for help
+    # beyond the table once hints and prompts could add up (2026-10-22).
+    top = max(rubric.hint_penalty, default=0)
+    level = min(hint_level, top) if top else hint_level
+    factor = rubric.credit(level)
     for score in scores:
         score.hint_level_used = hint_level
         score.credited_score = round(score.raw_score * factor, 3)
@@ -205,13 +213,16 @@ def evaluate_turn(
         result = adjudicate(request, result, llm=client)
 
     scores = result.aggregated
-    for score in scores:
-        # The checklist a student reads comes from the coverage measure, not
-        # from the evaluator's memory of the key points.
-        if cover.available and not score.missing_key_points:
-            score.missing_key_points = cover.missing()
+    # The checklist a student reads is the evaluators' (2026-10-22): the union
+    # of what each said was missing, and an EMPTY list is their judgement that
+    # nothing is. Until today an empty list was refilled from the coverage
+    # measure — on this platform the lexical fallback, which counts shared
+    # words — so a correct answer in the student's own words ("spread evenly"
+    # for "uniform distribution") was told it had missed every key point. The
+    # coverage measure still scaffolds the evaluators and is kept on the
+    # evaluation (`key_point_coverage`); it no longer overrules them.
 
-    apply_hint_credit(scores, active_rubric, turn.hint_level_used)
+    apply_hint_credit(scores, active_rubric, turn.hint_level_used + turn.prompts_used)
     calibrate(scores, round_type=round_type, ensemble_config=config.name, lookup=lookup)
 
     if not scores:

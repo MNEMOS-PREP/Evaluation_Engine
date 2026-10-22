@@ -18,11 +18,30 @@ Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 
 Legend: ✅ done · 🟡 partly done · ⬜ not started
 
+### 2026-10-23 — whole questions from M06, and the help they needed (`f673f90`)
+
+M06 now asks one thing at a time and pushes back on wrong answers, so a
+question is a thread of answers. M13 scores the thread once, when it closes
+(M06's realism overhaul — `Mock_Interview_Engine/plan_in_depth/M06_OVERHAUL.md`).
+
+- ✅ **`prompts_used`**: the interviewer's corrective pushes before an answer
+  came right, priced with the rubric's own published hint credit — a correct
+  answer and one that got there with help no longer score alike.
+- ✅ **`key_point_ids`**: the key points of what was actually asked, for a
+  question asked one part at a time; absent means all of them, and an empty
+  match never judges an answer against nothing.
+- ✅ **Help past the table holds the last price** — "unlisted levels credit
+  fully" was a refund once hints and pushes could add up.
+- ✅ **Prompt `m13-eval-1.1.0`**, rule 7: one question's several answers are
+  scored as the understanding they show together, a correction named as one.
+- ✅ **The checklist is the evaluators'** (below, 2026-10-22).
+- Tests: `test_threads.py` (7) — 187 in all, lint clean.
+
 ### 2026-10-22 — how an answer is scored on this machine, and a checklist that contradicts the evaluators
 
 An audit for the demo, against `77ead37`. No code changed.
 
-- ⬜ **The checklist under a strong answer is wrong.** `service.py` (~L209)
+- ✅ **The checklist under a strong answer is wrong.** `service.py` (~L209)
   fills a dimension's `missing_key_points` from the coverage measure whenever
   the ensemble listed none. With the lexical fallback, a correct paraphrase of
   M05's `hashing_average_lookup` ("compute a hash of the key and jump straight
@@ -33,7 +52,9 @@ An audit for the demo, against `77ead37`. No code changed.
   evaluator produced one, with the paraphrase as the test — or install NLI
   (below). The comment above that line says the checklist comes "from the
   coverage measure", which the code does not do; reconcile them. Owner's call;
-  not changed.
+  not changed. _Fixed 2026-10-23 (`f673f90`): the evaluators' list is final, an
+  empty one meaning nothing is missing; coverage still scaffolds them and stays
+  on the evaluation (`key_point_coverage`). Test: `test_threads.py`._
 - ⬜ **Key-point coverage is the lexical fallback here.** M13's venv has no
   `transformers` or `torch`, so DeBERTa-MNLI never loads, and the scaffold the
   evaluators see is word overlap (`KP_LEXICAL_ABSENT_BELOW` 0.2, threshold
@@ -233,12 +254,10 @@ _Nothing scouted for this module yet._
 
 ## 2. Next
 
-1. **The checklist fix** (2026-10-22 above) — today it tells the strongest
-   answers they missed every key point.
-2. **A test for the human-rating queue** — the last partial requirement.
-3. **AC-13.15, de-identification for peer raters** — the gate the human-agreement metric waits on (see 2026-10-13/16 above).
-4. **Walk the §13 acceptance gates** one at a time and write what each needs here.
-5. M19's ledger channel and its backfill, when M19 exists (see `delivery.py`).
+1. **A test for the human-rating queue** — the last partial requirement.
+2. **AC-13.15, de-identification for peer raters** — the gate the human-agreement metric waits on (see 2026-10-13/16 above).
+3. **Walk the §13 acceptance gates** one at a time and write what each needs here.
+4. M19's ledger channel and its backfill, when M19 exists (see `delivery.py`).
 
 ---
 

@@ -18,6 +18,35 @@ Spec: [M13_Evaluation_Engine.md](M13_Evaluation_Engine.md)
 
 Legend: ✅ done · 🟡 partly done · ⬜ not started
 
+### 2026-10-22 — how an answer is scored on this machine, and a checklist that contradicts the evaluators
+
+An audit for the demo, against `77ead37`. No code changed.
+
+- ⬜ **The checklist under a strong answer is wrong.** `service.py` (~L209)
+  fills a dimension's `missing_key_points` from the coverage measure whenever
+  the ensemble listed none. With the lexical fallback, a correct paraphrase of
+  M05's `hashing_average_lookup` ("compute a hash of the key and jump straight
+  to that slot … spread evenly … resized before it gets too full … if
+  everything collides it becomes linear") scores 0.14 / 0.00 / 0.00: all three
+  points "missing", under an answer the evaluators would call complete. Fix:
+  keep the evaluators' empty list as final, and use coverage only when no
+  evaluator produced one, with the paraphrase as the test — or install NLI
+  (below). The comment above that line says the checklist comes "from the
+  coverage measure", which the code does not do; reconcile them. Owner's call;
+  not changed.
+- ⬜ **Key-point coverage is the lexical fallback here.** M13's venv has no
+  `transformers` or `torch`, so DeBERTa-MNLI never loads, and the scaffold the
+  evaluators see is word overlap (`KP_LEXICAL_ABSENT_BELOW` 0.2, threshold
+  version 1.1).
+- ⬜ **Scores run on the dev grade.** `projects/keys.txt` has no
+  `ANTHROPIC_API_KEY`, so `get_llm()` uses Groq `openai/gpt-oss-120b`: real
+  scores with verified evidence, `ScoreGrade.dev`, never displayable and never
+  in the calibration corpus. And `n3_het_v1`'s three members are all
+  `model=None` — one model three times, decorrelated only by dimension order
+  (seeds 0/17/41). Heterogeneous needs a second provider.
+- Only reviewed M05 items reach M13 (M06 does not send drafts), and only 12 are
+  reviewed, all DSA — see M05's TODO, 2026-10-22.
+
 ### 2026-10-17 — a decision: two keys, two organizations?
 
 - ⬜ **Key rotation and Groq's policy — the user's call.** `llm.py` takes the
@@ -204,10 +233,12 @@ _Nothing scouted for this module yet._
 
 ## 2. Next
 
-1. **A test for the human-rating queue** — the last partial requirement.
-2. **AC-13.15, de-identification for peer raters** — the gate the human-agreement metric waits on (see 2026-10-13/16 above).
-3. **Walk the §13 acceptance gates** one at a time and write what each needs here.
-4. M19's ledger channel and its backfill, when M19 exists (see `delivery.py`).
+1. **The checklist fix** (2026-10-22 above) — today it tells the strongest
+   answers they missed every key point.
+2. **A test for the human-rating queue** — the last partial requirement.
+3. **AC-13.15, de-identification for peer raters** — the gate the human-agreement metric waits on (see 2026-10-13/16 above).
+4. **Walk the §13 acceptance gates** one at a time and write what each needs here.
+5. M19's ledger channel and its backfill, when M19 exists (see `delivery.py`).
 
 ---
 

@@ -1,0 +1,70 @@
+# Every push to main and every pull request: lint, tests and a typecheck.
+# The suites need the network only to install, and no API key.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · ruff + pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: Evaluation_Engine/Backend
+    steps:
+      # Checked out under its own name, the way the platform lays repos side by side.
+      - uses: actions/checkout@v4
+        with:
+          path: Evaluation_Engine
+      # Beside it: M04's ontology, which this module's concept ids are checked against.
+      # Without it that test skips; with it, a change there that breaks this repo fails here.
+      - uses: actions/checkout@v4
+        with:
+          repository: MNEMOS-PREP/Memory
+          ref: main  # not the default branch: some repos default to `todo`, the plan
+          path: Memory
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: Evaluation_Engine/Backend/pyproject.toml
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          # ruff pinned so a new release's rules never turn main red on their own.
+          python -m pip install -e ".[dev]" "ruff==0.17.1"
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend · typecheck + test + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test --if-present
+      - run: npm run build

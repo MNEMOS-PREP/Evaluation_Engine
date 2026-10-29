@@ -28,6 +28,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: Evaluation_Engine
+      # Beside it: M04's ontology, which this module's concept ids are checked against.
+      # Without it that test skips; with it, a change there that breaks this repo fails here.
+      - uses: actions/checkout@v4
+        with:
+          repository: MNEMOS-PREP/Memory
+          ref: main  # not the default branch: some repos default to `todo`, the plan
+          path: Memory
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

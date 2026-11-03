@@ -1,7 +1,7 @@
 ===============================================================================
   AI INTERVIEWER — PORT ALLOCATION
   Single source of truth. If you need a port, take it from here and tick it off.
-  Last updated: 2026-10-21
+  Last updated: 2026-11-03
 ===============================================================================
 
 READ THIS FIRST
@@ -90,8 +90,11 @@ Formula            : backend 8100 + module number, frontend 5200 + module number
   M18   Integrity & Proctoring               8118      5218        3      E2
   M19   Reports & Dashboards                 8119      5219        2-4    E3
   M20   Course Viva (lab & course viva)      8120      5220        3      E3
+  M21   Rovix (the guide and companion)      8121      5221        4      E3
 
   M20 is the first module past the original nineteen; the formula holds.
+  M21 (Rovix, 2026-11-03) follows it: the tour and the news in every page's
+  corner, mounted by the shell like any module.
 
 INTERNAL / OPS APPS - 83xx
 -------------------------------------------------------------------------------

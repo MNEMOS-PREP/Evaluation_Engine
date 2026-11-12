@@ -91,10 +91,13 @@ Formula            : backend 8100 + module number, frontend 5200 + module number
   M19   Reports & Dashboards                 8119      5219        2-4    E3
   M20   Course Viva (lab & course viva)      8120      5220        3      E3
   M21   Rovix (the guide and companion)      8121      5221        4      E3
+  M22   Follow Your Goal (goal engine)       8122      5222        4      E3
 
   M20 is the first module past the original nineteen; the formula holds.
   M21 (Rovix, 2026-11-03) follows it: the tour and the news in every page's
   corner, mounted by the shell like any module.
+  M22 (Follow Your Goal, 2026-11-13): a career goal as a competency graph,
+  a roadmap and versioned goal interviews; other modules read its Goal Context.
 
 INTERNAL / OPS APPS - 83xx
 -------------------------------------------------------------------------------

@@ -212,6 +212,11 @@ def test_every_track_m05_offers_has_a_rubric():
     for round_type in (
         "dsa_verbal", "os_verbal", "dbms_verbal", "cn_verbal", "oop_verbal",
         "systems_verbal", "ml_verbal", "dl_verbal", "behavioural",
+        # 2026-11-12, the career-goal tracks (M22).
+        "frontend_verbal", "backend_verbal", "system_design_verbal", "languages_verbal",
+        "mobile_verbal", "testing_verbal", "data_eng_verbal", "analytics_verbal",
+        "ai_apps_verbal", "devops_verbal", "security_verbal", "embedded_verbal",
+        "product_verbal", "aptitude_verbal",
     ):
         assert round_type in loaded, round_type
 

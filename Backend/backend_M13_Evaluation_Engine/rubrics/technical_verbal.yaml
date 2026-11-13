@@ -20,6 +20,23 @@ round_types:
   - systems_verbal
   - ml_verbal
   - dl_verbal
+  # 2026-11-12: the tracks career goals added (M22, Follow Your Goal). The
+  # same three questions apply — is it right, do they know why, could a peer
+  # follow it — whether the topic is React, Kafka, a PID loop or a case.
+  - frontend_verbal
+  - backend_verbal
+  - system_design_verbal
+  - languages_verbal
+  - mobile_verbal
+  - testing_verbal
+  - data_eng_verbal
+  - analytics_verbal
+  - ai_apps_verbal
+  - devops_verbal
+  - security_verbal
+  - embedded_verbal
+  - product_verbal
+  - aptitude_verbal
 version: "1.0.0"
 created_at: "2026-10-07T00:00:00+00:00"
 

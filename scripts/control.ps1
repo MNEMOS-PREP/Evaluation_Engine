@@ -122,8 +122,14 @@ function Get-RecordedPid {
 function Test-ProcessAlive {
     param([int] $ProcessId)
     if (-not $ProcessId) { return $false }
-    try { $null = Get-Process -Id $ProcessId -ErrorAction Stop; return $true }
+    # Alive is not enough: Windows reuses PIDs. On 2026-11-17 a .pid file
+    # left from the day before named an msedgewebview2.exe, so M01's API was
+    # reported 'already running' and never started - and a stop would have
+    # killed that unrelated process. Ours is a PowerShell running pane.ps1,
+    # the same test Platform_Shell's stop.ps1 uses to find the tabs it closes.
+    try { $p = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop }
     catch { return $false }
+    return [bool]($p -and $p.CommandLine -and $p.CommandLine.ToLower().Contains('pane.ps1'))
 }
 
 Write-Host ''
